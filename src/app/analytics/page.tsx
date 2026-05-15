@@ -38,7 +38,7 @@ export default function AnalyticsPage() {
 
   const fmt = (n: number) => n?.toLocaleString('ru-RU') || '0';
   const tierColor = (score: number) => score >= 75 ? '#00c853' : score >= 40 ? '#ff9800' : '#536471';
-  const tierLabel = (score: number) => score >= 75 ? '🔥 Hot' : score >= 40 ? '🟡 Warm' : '❄️ Cold';
+  const tierLabel = (score: number) => score >= 75 ? t('analytics.tier.high', lang) : score >= 40 ? t('analytics.tier.medium', lang) : t('analytics.tier.low', lang);
 
   if (loading) {
     return (
@@ -51,13 +51,13 @@ export default function AnalyticsPage() {
   const langLabels: Record<string, string> = { en: 'English', ru: 'Русский', kz: 'Қазақша' };
   const langColors: Record<string, string> = { en: '#007484', ru: '#C9A96E', kz: '#ef5350' };
   const intentLabels: Record<string, string> = {
-    unit_recommendation: '🏠 Unit Recommendation',
-    price_inquiry: '💰 Price Inquiry',
-    dp_calculation: '📊 DP Calculation',
-    location_info: '📍 Location Info',
-    general_faq: '❓ General FAQ',
-    booking_inquiry: '📋 Booking',
-    greeting: '👋 Greeting',
+    unit_recommendation: t('intent.unit_recommendation', lang),
+    price_inquiry: t('intent.price_inquiry', lang),
+    dp_calculation: t('intent.dp_calculation', lang),
+    location_info: t('intent.location_info', lang),
+    general_faq: t('intent.general_faq', lang),
+    booking_inquiry: t('intent.booking_inquiry', lang),
+    greeting: t('intent.greeting', lang),
   };
 
   return (
@@ -99,7 +99,7 @@ export default function AnalyticsPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 24, marginBottom: 32 }}>
           {/* Intent Distribution */}
           <div className="card" style={{ padding: '24px' }}>
-            <h3 style={{ fontSize: 16, color: '#f0f4f8', marginBottom: 20 }}>Intent Distribution</h3>
+            <h3 style={{ fontSize: 16, color: '#f0f4f8', marginBottom: 20 }}>{t('analytics.intent_dist', lang)}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {Object.entries(data?.intentCounts || {}).sort((a, b) => b[1] - a[1]).map(([intent, count]) => {
                 const total = Object.values(data?.intentCounts || {}).reduce((s, c) => s + c, 0);
@@ -177,18 +177,18 @@ export default function AnalyticsPage() {
         {/* Leads Table */}
         <div className="card" style={{ padding: '24px', overflow: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
-            <h3 style={{ fontSize: 16, color: '#f0f4f8', margin: 0 }}>Lead Pipeline</h3>
+            <h3 style={{ fontSize: 16, color: '#f0f4f8', margin: 0 }}>{t('analytics.pipeline', lang)}</h3>
             
             {/* Legend */}
             <div style={{ display: 'flex', gap: 12, fontSize: 12, color: '#8899a6', background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={t('analytics.legend.hot', lang)}>
-                <span style={{ color: '#00c853' }}>🔥 Hot (75+)</span>
+                <span style={{ color: '#00c853', fontWeight: 600 }}>{t('analytics.tier.high', lang)} (75+)</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={t('analytics.legend.warm', lang)}>
-                <span style={{ color: '#ff9800' }}>🟡 Warm (40+)</span>
+                <span style={{ color: '#ff9800', fontWeight: 600 }}>{t('analytics.tier.medium', lang)} (40+)</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={t('analytics.legend.cold', lang)}>
-                <span style={{ color: '#536471' }}>❄️ Cold</span>
+                <span style={{ color: '#536471', fontWeight: 600 }}>{t('analytics.tier.low', lang)}</span>
               </div>
             </div>
           </div>
