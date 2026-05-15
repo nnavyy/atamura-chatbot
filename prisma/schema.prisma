@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Unit {
+  id        String   @id @default(cuid())
+  code      String   @unique       // "1A", "2B", etc.
+  type      String                 // "1BR", "2BR", "3BR"
+  rooms     Int
+  areaSqm   Float
+  priceMin  Float                  // in ₸ (Tenge)
+  status    String   @default("available") // available | sold | reserved
+  imageUrl  String?
+  floorPlan String?                // URL to floor plan image
+  view      String?                // "Mountain", "Courtyard", etc.
+  floor     String?                // Floor range, e.g. "2-5"
+  features  String?                // JSON array of features
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model Lead {
+  id        String        @id @default(cuid())
+  sessionId String
+  name      String?
+  whatsapp  String?
+  email     String?
+  budget    Float?
+  purpose   String?       // living | investment | family | rental
+  interest  String?       // unit code they're interested in
+  status    String        @default("new") // new | follow-up | interested | not-interested | closing
+  score     Int           @default(0) // 0-100 lead score
+  language  String        @default("en") // en | ru | kz
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  chats     ChatHistory[]
+}
+
+model ChatHistory {
+  id                String   @id @default(cuid())
+  sessionId         String
+  role              String   // user | assistant
+  content           String
+  units             String?  // JSON array of recommended unit codes
+  detectedIntent    String?  // unit_recommendation | price_inquiry | dp_calculation | location_info | general_faq | booking_inquiry
+  extractedEntities String?  // JSON object with extracted entities
+  language          String   @default("en") // en | ru | kz
+  leadId            String?
+  lead              Lead?    @relation(fields: [leadId], references: [id])
+  createdAt         DateTime @default(now())
+}
