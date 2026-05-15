@@ -1,4 +1,15 @@
-import { ChatHistory } from '@prisma/client';
+// Local type definition — avoids dependency on generated @prisma/client types
+interface ChatHistory {
+  id: string;
+  sessionId: string;
+  role: string;
+  content: string;
+  language: string;
+  detectedIntent?: string | null;
+  units?: string | null;
+  extractedEntities?: string | null;
+  createdAt: Date;
+}
 
 export type LeadTier = 'hot' | 'warm' | 'cold';
 
