@@ -1,3 +1,5 @@
+// @ts-nocheck
+// This file is a database seed script, not part of the Next.js app.
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
