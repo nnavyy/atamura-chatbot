@@ -22,14 +22,14 @@ export async function GET() {
 
     // Count intents
     const intentCounts: Record<string, number> = {};
-    recentChats.forEach((c) => {
+    recentChats.forEach((c: { detectedIntent: string | null; content: string; language: string; createdAt: Date }) => {
       const intent = c.detectedIntent || 'unknown';
       intentCounts[intent] = (intentCounts[intent] || 0) + 1;
     });
 
     // Count recommended units
     const unitCounts: Record<string, number> = {};
-    unitMentions.forEach((c) => {
+    unitMentions.forEach((c: { units: string | null }) => {
       try {
         const codes = JSON.parse(c.units!) as string[];
         codes.forEach((code) => {
@@ -40,7 +40,7 @@ export async function GET() {
 
     // Language distribution
     const languageDistribution: Record<string, number> = {};
-    chatsByLang.forEach((l) => {
+    chatsByLang.forEach((l: { language: string; _count: { language: number } }) => {
       languageDistribution[l.language] = l._count.language;
     });
 
