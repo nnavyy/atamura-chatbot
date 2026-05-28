@@ -45,15 +45,6 @@ export default function Home() {
         }} />
 
         <div style={{ textAlign: 'center', maxWidth: 800, padding: '0 24px', position: 'relative', zIndex: 1 }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            background: 'rgba(0,116,132,0.15)', border: '1px solid rgba(0,116,132,0.3)',
-            padding: '8px 20px', borderRadius: 30, marginBottom: 32,
-            fontSize: 13, color: '#00a3b8', fontWeight: 600,
-          }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#00c853', boxShadow: '0 0 8px rgba(0,200,83,0.5)' }} />
-            {t('hero.ai_available', lang)}
-          </div>
 
           <h1 style={{ fontSize: 'clamp(36px, 6vw, 72px)', fontWeight: 800, marginBottom: 24, lineHeight: 1.1 }}>
             <span style={{ color: '#f0f4f8' }}>{t('hero.title_1', lang)} </span>
