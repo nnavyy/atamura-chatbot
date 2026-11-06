@@ -3,6 +3,8 @@ import prisma from '@/lib/prisma';
 import { geminiProvider } from '@/lib/gemini';
 import { buildSystemPrompt, buildUnitContext } from '@/lib/knowledgeBase';
 import { filterUnits, extractCriteria } from '@/lib/rules';
+import { verifiedUnitCodes, buildVerifiedReply, detectPaymentMethod } from '@/lib/recommendationGuard';
+import { calcFullPayment, calcInstallment, calcMortgage } from '@/lib/calculator';
 import { classifyIntent, extractEntities } from '@/lib/intentClassifier';
 import { scoreLead } from '@/lib/leadScoring';
 import { detectLanguage } from '@/lib/i18n';
@@ -13,7 +15,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { message, sessionId, history = [] } = body;
 
-    if (!message || !sessionId) {
+    if (typeof message !== 'string' || !message.trim() || message.length > 3000 || typeof sessionId !== 'string' || !/^[a-zA-Z0-9_:-]{8,128}$/.test(sessionId)) {
       return NextResponse.json({ error: 'Missing message or sessionId' }, { status: 400 });
     }
 
@@ -23,27 +25,55 @@ export async function POST(req: NextRequest) {
     const entities = extractEntities(message);
 
     // 2. Get all units from DB
-    const allUnits = await prisma.unit.findMany();
+    const availableUnits = await prisma.unit.findMany({ where: { status: 'available' } });
 
     // 3. Rule-based filtering
     const criteria = extractCriteria(entities);
-    const relevantUnits = filterUnits(allUnits, criteria);
+    const relevantUnits = filterUnits(availableUnits, criteria);
 
     // 4. Build context
-    const systemPrompt = buildSystemPrompt();
-    const unitContext = buildUnitContext(relevantUnits.length > 0 ? relevantUnits : allUnits);
+    const systemPrompt = buildSystemPrompt() + '\nResearch prototype using simulated/curated data, not official inventory. Recommend only provided available units. Never invent prices or calculate payments. Do not claim company affiliation.';
+    const unitContext = relevantUnits.length ? buildUnitContext(relevantUnits) : 'NO MATCHING UNITS. recommendedUnits must be [].';
 
     // 5. Prepare chat history
     const chatMessages: ChatMessage[] = [
-      ...history.map((h: { role: string; content: string }) => ({
-        role: h.role as 'user' | 'assistant',
-        content: h.content,
-      })),
+      ...(Array.isArray(history) ? history.slice(-12) : []).filter((h: unknown) => {
+        if (!h || typeof h !== 'object') return false;
+        const x = h as { role?: unknown; content?: unknown };
+        return (x.role === 'user' || x.role === 'assistant') && typeof x.content === 'string';
+      }).map((h: { role: 'user' | 'assistant'; content: string }) => ({ role: h.role, content: h.content.slice(0, 3000) })),
       { role: 'user' as const, content: message },
     ];
 
     // 6. Call Gemini
     const llmResponse = await geminiProvider.generateResponse(chatMessages, systemPrompt, unitContext);
+    // Verify all LLM-proposed codes against the retrieved, constrained database rows.
+    const approvedCodes = verifiedUnitCodes(llmResponse.recommendedUnits, relevantUnits);
+    const approvedUnits = relevantUnits.filter(u => approvedCodes.includes(u.code));
+    const hasConstraints = Boolean(criteria.budget || criteria.rooms || criteria.unitCode || criteria.purpose || criteria.minArea || criteria.view);
+    const recommendationIntent = hasConstraints || preClassification.intent === 'unit_recommendation';
+    let safeMessage = llmResponse.message;
+    if (recommendationIntent || !relevantUnits.length) {
+      safeMessage = buildVerifiedReply(
+        !relevantUnits.length ? [] : approvedUnits.length ? approvedUnits : relevantUnits.slice(0, 3),
+        language
+      );
+    }
+    const method = detectPaymentMethod(message);
+    const explicitCode = typeof entities.unit_code === 'string' ? entities.unit_code.toUpperCase() : '';
+    const selectedUnit = relevantUnits.find(u => u.code === explicitCode) || approvedUnits[0];
+    let calculation: ReturnType<typeof calcFullPayment> | null = null;
+    if (method && selectedUnit) {
+      calculation = method === 'full' ? calcFullPayment(selectedUnit.priceMin, selectedUnit.code)
+        : method === 'installment' ? calcInstallment(selectedUnit.priceMin, selectedUnit.code)
+        : calcMortgage(selectedUnit.priceMin, selectedUnit.code);
+      safeMessage = buildVerifiedReply([selectedUnit], language) +
+        '\nPayment simulation (' + method + '): DP ' + calculation.dp.toLocaleString('ru-RU') +
+        ' ₸, monthly ' + calculation.monthly.toLocaleString('ru-RU') +
+        ' ₸, total ' + calculation.total.toLocaleString('ru-RU') +
+        ' ₸. This is a research simulation, not a commercial or bank offer.';
+    }
+
 
     // 7. Find or create lead
     let lead = await prisma.lead.findFirst({
@@ -76,9 +106,9 @@ export async function POST(req: NextRequest) {
       data: {
         sessionId,
         role: 'assistant',
-        content: llmResponse.message,
-        units: llmResponse.recommendedUnits.length > 0
-          ? JSON.stringify(llmResponse.recommendedUnits)
+        content: safeMessage,
+        units: approvedCodes.length > 0
+          ? JSON.stringify(approvedCodes)
           : null,
         language: llmResponse.language || language,
         leadId: lead.id,
@@ -108,17 +138,12 @@ export async function POST(req: NextRequest) {
     }
 
     // 12. Get recommended unit details
-    let recommendedUnitDetails: unknown[] = [];
-    if (llmResponse.recommendedUnits.length > 0) {
-      recommendedUnitDetails = await prisma.unit.findMany({
-        where: { code: { in: llmResponse.recommendedUnits } },
-      });
-    }
+    const recommendedUnitDetails = approvedUnits;
 
     return NextResponse.json({
-      message: llmResponse.message,
+      message: safeMessage,
       recommendedUnits: recommendedUnitDetails,
-      calculation: llmResponse.calculation || null,
+      calculation,
       language: llmResponse.language || language,
       intent: llmResponse.detectedIntent || preClassification.intent,
       leadScore: scoreResult.total,
@@ -127,7 +152,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Chat API error:', error);
     return NextResponse.json(
-      { error: 'Failed to process message', details: String(error) },
+      { error: 'Failed to process message' },
       { status: 500 }
     );
   }
