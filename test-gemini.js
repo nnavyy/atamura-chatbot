@@ -1,4 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 require('dotenv').config({ path: '.env.local' });
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 async function main() {

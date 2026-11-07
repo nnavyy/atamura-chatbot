@@ -13,18 +13,21 @@ export default function LeadCaptureForm({ lang, sessionId, onSubmit, onSkip }: P
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [consent, setConsent] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async () => {
-    if (!name.trim() && !whatsapp.trim()) return;
+    if ((!name.trim() && !whatsapp.trim()) || !consent) return;
     try {
-      await fetch('/api/leads', {
+      const response = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, name: name.trim(), whatsapp: whatsapp.trim() }),
+        body: JSON.stringify({ sessionId, name: name.trim(), whatsapp: whatsapp.trim(), consent }),
       });
+      if (!response.ok) { setError('Unable to save your contact. Verify the phone format (+ country code).'); return; }
       setSubmitted(true);
       setTimeout(onSubmit, 2000);
-    } catch { /* skip */ }
+    } catch { setError('Network error. Please try again.'); }
   };
 
   if (submitted) {
@@ -87,8 +90,13 @@ export default function LeadCaptureForm({ lang, sessionId, onSubmit, onSkip }: P
           }}
           id="lead-whatsapp-input"
         />
+        <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: '#c2cbd4' }}>
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+          I agree to save the provided contact details for this research chatbot demonstration. I understand that this is not an official Atamura Group sales channel.
+        </label>
+        {error && <div role="alert" style={{ fontSize: 12, color: '#ef8383' }}>{error}</div>}
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={handleSubmit} className="btn-primary" style={{ flex: 1, padding: '10px', fontSize: 13 }} id="lead-submit-btn">
+          <button disabled={!consent} onClick={handleSubmit} className="btn-primary" style={{ flex: 1, padding: '10px', fontSize: 13 }} id="lead-submit-btn">
             {t('lead.submit', lang)}
           </button>
           <button onClick={onSkip} style={{

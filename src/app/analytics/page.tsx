@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { t } from '@/lib/i18n';
 import { useLanguage } from '@/components/LanguageContext';
 
@@ -21,30 +21,71 @@ interface Lead {
 }
 
 export default function AnalyticsPage() {
+
   const [data, setData] = useState<Analytics | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [adminKey, setAdminKey] = useState('');
+  const [authorized, setAuthorized] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const { lang } = useLanguage();
 
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/analytics').then((r) => r.json()),
-      fetch('/api/leads').then((r) => r.json()),
-    ]).then(([analytics, leadsData]) => {
-      setData(analytics);
+  const loadDashboard = async () => {
+    if (!adminKey.trim()) return;
+    setLoading(true);
+    setError('');
+    try {
+      const headers = { Authorization: 'Bearer ' + adminKey.trim() };
+      const [analyticsResponse, leadsResponse] = await Promise.all([
+        fetch('/api/analytics', { headers, cache: 'no-store' }),
+        fetch('/api/leads', { headers, cache: 'no-store' }),
+      ]);
+      if (!analyticsResponse.ok || !leadsResponse.ok) {
+        throw new Error('Access denied or dashboard unavailable. Check ADMIN_API_KEY on the server.');
+      }
+      const [analyticsData, leadsData] = await Promise.all([
+        analyticsResponse.json(), leadsResponse.json()
+      ]);
+      setData(analyticsData);
       setLeads(Array.isArray(leadsData) ? leadsData : []);
-    }).catch(console.error).finally(() => setLoading(false));
-  }, []);
+      setAuthorized(true);
+      setAdminKey(''); // Do not persist the secret in localStorage or cookies.
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to load dashboard.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fmt = (n: number) => n?.toLocaleString('ru-RU') || '0';
   const tierColor = (score: number) => score >= 75 ? '#00c853' : score >= 40 ? '#ff9800' : '#536471';
   const tierLabel = (score: number) => score >= 75 ? t('analytics.tier.high', lang) : score >= 40 ? t('analytics.tier.medium', lang) : t('analytics.tier.low', lang);
 
-  if (loading) {
+
+  if (!authorized) {
     return (
-      <div style={{ paddingTop: 72, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f1419' }}>
-        <div style={{ color: '#8899a6', fontSize: 16 }}>Loading analytics...</div>
-      </div>
+      <main style={{ padding: '140px 24px 48px', minHeight: '100vh',
+        background: '#0f1419', color: '#f0f4f8', textAlign: 'center' }}>
+        <h1 style={{ marginBottom: 16 }}>Research dashboard — restricted</h1>
+        <p style={{ color: '#8899a6', maxWidth: 570, margin: '0 auto 22px' }}>
+          Lead data and analytics are available only to authorized researchers.
+          Enter the server-side ADMIN_API_KEY. Never share or commit this key.
+        </p>
+        <form onSubmit={(e) => { e.preventDefault(); void loadDashboard(); }}
+          style={{ maxWidth: 440, margin: '0 auto', display: 'flex', gap: 8 }}>
+          <input type="password" autoComplete="off" aria-label="Admin access key"
+            value={adminKey} onChange={(e) => setAdminKey(e.target.value)}
+            placeholder="Admin access key"
+            style={{ flex: 1, minWidth: 0, borderRadius: 8, padding: 12,
+              background: '#1a2332', border: '1px solid #536471', color: 'white' }}/>
+          <button type="submit" disabled={loading || !adminKey.trim()}
+            style={{ borderRadius: 8, border: 'none', padding: '0 18px',
+              background: '#007484', color: 'white', cursor: 'pointer' }}>
+            {loading ? 'Checking…' : 'Unlock'}
+          </button>
+        </form>
+        {error && <p role="alert" style={{ color: '#ff9898', marginTop: 14 }}>{error}</p>}
+      </main>
     );
   }
 
