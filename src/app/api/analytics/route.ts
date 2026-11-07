@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { isAdminRequest } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!isAdminRequest(req)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   try {
     const [totalChats, totalLeads, hotLeads, chatsByLang, recentChats, unitMentions] = await Promise.all([
       prisma.chatHistory.count(),
@@ -60,6 +62,7 @@ export async function GET() {
       languageDistribution,
     });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    console.error('Analytics API failed', error);
+    return NextResponse.json({ error: 'Analytics service unavailable' }, { status: 500 });
   }
 }
