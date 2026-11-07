@@ -45,19 +45,18 @@ export default function ChatWidget() {
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
-  useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      setMessages([{
-        role: 'assistant',
-        content: t('chat.welcome', lang),
-        options: lang === 'ru'
-          ? ['Покажите 1-комнатные', 'Какой бюджет нужен?', 'Способы оплаты']
-          : lang === 'kz'
-          ? ['1 бөлмелі көрсетіңіз', 'Қандай бюджет керек?', 'Төлем тәсілдері']
-          : ['Show me 1BR apartments', 'What budget do I need?', 'Payment options'],
-      }]);
-    }
-  }, [isOpen, lang, messages.length]);
+  const openChat = () => {
+    setIsOpen(true);
+    setMessages((current) => current.length ? current : [{
+      role: 'assistant',
+      content: t('chat.welcome', lang),
+      options: lang === 'ru'
+        ? ['Покажите 1-комнатные', 'Какой бюджет нужен?', 'Способы оплаты']
+        : lang === 'kz'
+        ? ['1 бөлмелі көрсетіңіз', 'Қандай бюджет керек?', 'Төлем тәсілдері']
+        : ['Show me 1BR apartments', 'What budget do I need?', 'Payment options'],
+    }]);
+  };
 
   useEffect(() => {
     if (isOpen) inputRef.current?.focus();
@@ -123,7 +122,7 @@ export default function ChatWidget() {
       {/* Floating Bubble */}
       {!isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={openChat}
           className="animate-pulse-glow"
           style={{
             position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
