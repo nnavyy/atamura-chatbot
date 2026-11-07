@@ -26,22 +26,6 @@ interface Calculation {
   monthly: number; total: number; tenor: number;
 }
 
-/** Lightweight markdown → HTML for chat bubbles */
-function renderMarkdown(text: string): string {
-  return text
-    // Bold: **text** or __text__
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/__(.+?)__/g, '<strong>$1</strong>')
-    // Italic: *text* or _text_ (single)
-    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>')
-    // Unordered list items: lines starting with * or -
-    .replace(/^[\*\-]\s+(.+)$/gm, '<li style="margin-left:16px;list-style:disc inside">$1</li>')
-    // Numbered list items: 1. 2. etc
-    .replace(/^\d+\.\s+(.+)$/gm, '<li style="margin-left:16px;list-style:decimal inside">$1</li>')
-    // Line breaks
-    .replace(/\n/g, '<br/>');
-}
-
 export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -102,10 +86,12 @@ export default function ChatWidget() {
         body: JSON.stringify({
           message: userMsg,
           sessionId,
-          history: newMessages.slice(-30).map((m) => ({ role: m.role, content: m.content })),
+          history: messages.slice(-12).map((m) => ({ role: m.role, content: m.content })),
         }),
       });
+      if (!res.ok) throw new Error('Chat API returned ' + res.status);
       const data = await res.json();
+      if (typeof data.message !== 'string') throw new Error('Invalid chatbot response');
       setMessages((prev) => [...prev, {
         role: 'assistant',
         content: data.message,
@@ -241,7 +227,7 @@ export default function ChatWidget() {
                   border: msg.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.06)',
                 }}>
                   {msg.role === 'user' ? msg.content : (
-                    <div dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
+                    <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
                   )}
                 </div>
                 {/* Unit cards */}
