@@ -56,18 +56,18 @@ export class GeminiProvider implements LLMProvider {
     const lang = hasKazakh ? 'kz' : hasRussian ? 'ru' : 'en';
 
     const fallbackMessages = {
-      en: 'Thank you for your interest in KERUEN! Our AI assistant is currently busy. In the meantime, I can share that we have 1BR apartments from 12,000,000 ₸, 2BR from 19,200,000 ₸, and 3BR from 32,500,000 ₸. For immediate assistance, please call +7 (700) 700 11 11 or visit atamuragroup.kz.',
-      ru: 'Благодарим за интерес к ЖК KERUEN! Наш AI-ассистент сейчас загружен. Тем временем, хочу сообщить, что у нас есть 1-комнатные от 12 000 000 ₸, 2-комнатные от 19 200 000 ₸ и 3-комнатные от 32 500 000 ₸. Для быстрой связи звоните +7 (700) 700 11 11 или посетите atamuragroup.kz.',
-      kz: 'KERUEN тұрғын үй кешеніне қызығушылығыңыз үшін рахмет! AI-көмекшіміз қазір бос емес. Бізде 1 бөлмелі пәтерлер 12 000 000 ₸-дан, 2 бөлмелі 19 200 000 ₸-дан, 3 бөлмелі 32 500 000 ₸-дан бар. Жылдам байланыс үшін +7 (700) 700 11 11 қоңырау шалыңыз.',
+      en: 'The research assistant is temporarily unavailable. Please try again later. No inventory or price information has been verified for this response.',
+      ru: 'Исследовательский чат-бот временно недоступен. Попробуйте позже. Информация о наличии и ценах не подтверждена для этого ответа.',
+      kz: 'Зерттеу чат-боты уақытша қолжетімсіз. Кейінірек қайталап көріңіз. Бұл жауап үшін пәтерлердің қолжетімділігі мен бағалары расталған жоқ.',
     };
 
     return {
       message: fallbackMessages[lang],
-      recommendedUnits: ['1B', '2A', '3A'],
+      recommendedUnits: [],
       detectedIntent: 'general_faq',
       extractedEntities: {},
       language: lang,
-      options: ['Show me 1BR', 'I want to see 2BR', 'Tell me about installment'],
+      options: [],
     };
   }
 
@@ -79,13 +79,13 @@ export class GeminiProvider implements LLMProvider {
       try {
         const parsed = JSON.parse(jsonMatch[1]);
         return {
-          message: parsed.message || text.replace(/```json[\s\S]*?```/, '').trim(),
-          recommendedUnits: parsed.recommendedUnits || [],
+          message: typeof parsed.message === 'string' ? parsed.message.slice(0, 8000) : text.replace(/```json[\s\S]*?```/, '').trim(),
+          recommendedUnits: Array.isArray(parsed.recommendedUnits) ? parsed.recommendedUnits.filter((x: unknown) => typeof x === 'string').slice(0, 20) : [],
           calculation: (parsed.calculation && parsed.calculation.dp && parsed.calculation.unitCode) ? parsed.calculation : undefined,
           detectedIntent: parsed.detectedIntent || 'general_faq',
-          extractedEntities: parsed.extractedEntities || {},
-          language: parsed.language || 'en',
-          options: parsed.options || [],
+          extractedEntities: parsed.extractedEntities && typeof parsed.extractedEntities === 'object' && !Array.isArray(parsed.extractedEntities) ? parsed.extractedEntities : {},
+          language: ['en', 'ru', 'kz'].includes(parsed.language) ? parsed.language : 'en',
+          options: Array.isArray(parsed.options) ? parsed.options.filter((x: unknown) => typeof x === 'string').slice(0, 3) : [],
         };
       } catch {
         // JSON parse failed, fall through to plain text
