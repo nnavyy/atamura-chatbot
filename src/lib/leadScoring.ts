@@ -27,7 +27,7 @@ export interface LeadScoreBreakdown {
  * Warm lead (40-74): has budget but no details yet
  * Cold lead (<40): just exploring
  */
-export function scoreLead(chatHistory: ChatHistory[]): LeadScoreBreakdown {
+export function scoreLead(chatHistory: ChatHistory[], hasVerifiedContact = false): LeadScoreBreakdown {
   const userMessages = chatHistory
     .filter((c) => c.role === 'user')
     .map((c) => c.content.toLowerCase());
@@ -64,7 +64,7 @@ export function scoreLead(chatHistory: ChatHistory[]): LeadScoreBreakdown {
     {
       name: 'Provided contact info',
       score: 25,
-      matched: /\+?\d{10,}|whatsapp|ватсап|email|@/i.test(allContent),
+      matched: hasVerifiedContact || /(?:\+\d{9,15}\b|\b[^\s@]+@[^\s@]+\.[^\s@]+\b)/i.test(allContent),
     },
   ];
 
