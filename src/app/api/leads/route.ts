@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { timingSafeEqual } from 'node:crypto';
+import { isAdminRequest } from '@/lib/adminAuth';
 
 export async function GET(req: NextRequest) {
-  const expected = process.env.ADMIN_API_KEY ?? '';
-  const provided = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? '';
-  const authorized = Boolean(expected && provided && expected.length === provided.length &&
-    timingSafeEqual(Buffer.from(expected), Buffer.from(provided)));
-  if (!authorized) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!isAdminRequest(req)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   try {
     const leads = await prisma.lead.findMany({
-      include: { chats: { orderBy: { createdAt: 'desc' }, take: 5 } },
+      select: { id: true, name: true, whatsapp: true, budget: true, purpose: true,
+        interest: true, status: true, score: true, language: true, createdAt: true },
+      take: 100,
       orderBy: { score: 'desc' },
     });
     return NextResponse.json(leads);
@@ -39,6 +37,7 @@ export async function POST(req: NextRequest) {
       : await prisma.lead.create({ data: { sessionId, name, whatsapp, status: 'follow-up' } });
     return NextResponse.json({ success: true, id: lead.id });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    console.error('Lead API failed', error);
+    return NextResponse.json({ error: 'Lead service unavailable' }, { status: 500 });
   }
 }
