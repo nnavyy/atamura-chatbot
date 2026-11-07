@@ -75,18 +75,19 @@ export function classifyIntent(message: string): ClassifiedIntent {
 
 export function extractEntities(message: string): Record<string, unknown> {
   const entities: Record<string, unknown> = {};
-  // Budget
-  const budgetMatch = message.match(/(\d[\d\s,._]*)\s*(тг|тенге|₸|млн|million|tenge)/i);
-  if (budgetMatch) {
-    let amount = parseFloat(budgetMatch[1].replace(/[\s,_]/g, ''));
-    if (/млн|million/i.test(budgetMatch[2])) amount *= 1_000_000;
-    entities.budget = amount;
+  // Only infer a budget when the user explicitly supplies a currency/magnitude.
+  // Use decimal separators for millions and grouped separators for full amounts.
+  const million = message.match(/(?:^|[^\d])([1-9]\d{0,2}(?:[.,]\d{1,2})?)\s*(млн|million|million\s+tenge|миллион)/i);
+  if (million) {
+    const n = Number(million[1].replace(',', '.'));
+    if (Number.isFinite(n)) entities.budget = Math.round(n * 1_000_000);
   }
   if (!entities.budget) {
-    const numMatch = message.match(/(\d{2,3})\s*(млн|million)/i);
-    if (numMatch) entities.budget = parseFloat(numMatch[1]) * 1_000_000;
-    const rawNum = message.match(/\b(\d{7,})\b/);
-    if (rawNum && !entities.budget) entities.budget = parseFloat(rawNum[1]);
+    const price = message.match(/(?:^|[^\d])([1-9]\d{0,2}(?:[ .,_]\d{3}){2}|[1-9]\d{6,9})\s*(₸|тенге|тенге|tenge|тг)/i);
+    if (price) {
+      const n = Number(price[1].replace(/[ .,_]/g, ''));
+      if (Number.isFinite(n)) entities.budget = n;
+    }
   }
   // Rooms
   const roomMatch = message.match(/(\d)\s*(-?\s*)(room|комнат|бөлме|br\b|bedroom)/i);
@@ -98,6 +99,6 @@ export function extractEntities(message: string): Record<string, unknown> {
   else if (/аренд|rent|жалға/i.test(message)) entities.purpose = 'rental';
   // Unit code
   const unitMatch = message.match(/\b([123][ABVабв])\b/i);
-  if (unitMatch) entities.unit_code = unitMatch[1].toUpperCase();
+  if (unitMatch) entities.unit_code = unitMatch[1].toUpperCase().replace('А', 'A').replace('В', 'V').replace('Б', 'B');
   return entities;
 }
