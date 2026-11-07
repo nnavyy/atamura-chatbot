@@ -13,6 +13,7 @@ import { ChatMessage } from '@/lib/llm';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     const { message, sessionId, history = [] } = body;
 
     if (typeof message !== 'string' || !message.trim() || message.length > 3000 || typeof sessionId !== 'string' || !/^[a-zA-Z0-9_:-]{8,128}$/.test(sessionId)) {
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
     const approvedCodes = verifiedUnitCodes(llmResponse.recommendedUnits, relevantUnits);
     const approvedUnits = relevantUnits.filter(u => approvedCodes.includes(u.code));
     const hasConstraints = Boolean(criteria.budget || criteria.rooms || criteria.unitCode || criteria.purpose || criteria.minArea || criteria.view);
-    const recommendationIntent = hasConstraints || preClassification.intent === 'unit_recommendation';
+    const recommendationIntent = hasConstraints || ['unit_recommendation', 'price_inquiry', 'dp_calculation'].includes(preClassification.intent);
     let safeMessage = llmResponse.message;
     if (recommendationIntent || !relevantUnits.length) {
       safeMessage = buildVerifiedReply(
@@ -61,8 +62,11 @@ export async function POST(req: NextRequest) {
     }
     const method = detectPaymentMethod(message);
     const explicitCode = typeof entities.unit_code === 'string' ? entities.unit_code.toUpperCase() : '';
-    const selectedUnit = relevantUnits.find(u => u.code === explicitCode) || approvedUnits[0];
+    const selectedUnit = relevantUnits.find(u => u.code === explicitCode) || approvedUnits[0] || (relevantUnits.length === 1 ? relevantUnits[0] : undefined);
     let calculation: ReturnType<typeof calcFullPayment> | null = null;
+    if (method && !selectedUnit && relevantUnits.length > 0) {
+      safeMessage = buildVerifiedReply(relevantUnits.slice(0, 3), language) + '\nPlease specify a unit code to calculate a payment simulation.';
+    }
     if (method && selectedUnit) {
       calculation = method === 'full' ? calcFullPayment(selectedUnit.priceMin, selectedUnit.code)
         : method === 'installment' ? calcInstallment(selectedUnit.priceMin, selectedUnit.code)
@@ -94,8 +98,8 @@ export async function POST(req: NextRequest) {
         sessionId,
         role: 'user',
         content: message,
-        detectedIntent: llmResponse.detectedIntent || preClassification.intent,
-        extractedEntities: JSON.stringify(llmResponse.extractedEntities || entities),
+        detectedIntent: preClassification.intent,
+        extractedEntities: JSON.stringify(entities),
         language,
         leadId: lead.id,
       },
@@ -110,14 +114,14 @@ export async function POST(req: NextRequest) {
         units: approvedCodes.length > 0
           ? JSON.stringify(approvedCodes)
           : null,
-        language: llmResponse.language || language,
+        language,
         leadId: lead.id,
       },
     });
 
     // 10. Update lead with extracted info
     const updateData: Record<string, unknown> = {};
-    const allEntities = llmResponse.extractedEntities || entities;
+    const allEntities = entities;
     if (allEntities.budget && !lead.budget) updateData.budget = allEntities.budget as number;
     if (allEntities.purpose && !lead.purpose) updateData.purpose = allEntities.purpose as string;
     if (allEntities.unit_code) updateData.interest = allEntities.unit_code as string;
@@ -144,10 +148,10 @@ export async function POST(req: NextRequest) {
       message: safeMessage,
       recommendedUnits: recommendedUnitDetails,
       calculation,
-      language: llmResponse.language || language,
-      intent: llmResponse.detectedIntent || preClassification.intent,
+      language,
+      intent: preClassification.intent,
       leadScore: scoreResult.total,
-      options: llmResponse.options || [],
+      options: Array.isArray(llmResponse.options) ? llmResponse.options.slice(0, 3) : [],
     });
   } catch (error) {
     console.error('Chat API error:', error);
