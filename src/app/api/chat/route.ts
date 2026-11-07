@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
     const updatedChats = await prisma.chatHistory.findMany({
       where: { leadId: lead.id },
     });
-    const scoreResult = scoreLead(updatedChats);
+    const scoreResult = scoreLead(updatedChats, Boolean(lead.whatsapp || lead.email));
     updateData.score = scoreResult.total;
 
     if (Object.keys(updateData).length > 0) {
