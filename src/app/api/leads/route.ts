@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { isAdminRequest } from '@/lib/adminAuth';
+import { scoreLead } from '@/lib/leadScoring';
 
 export async function GET(req: NextRequest) {
   if (!isAdminRequest(req)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -35,6 +36,10 @@ export async function POST(req: NextRequest) {
     const lead = existing
       ? await prisma.lead.update({ where: { id: existing.id }, data: { name, whatsapp, status: 'follow-up' } })
       : await prisma.lead.create({ data: { sessionId, name, whatsapp, status: 'follow-up' } });
+    // Contact submission must immediately affect the score, not only future chat turns.
+    const chats = await prisma.chatHistory.findMany({ where: { leadId: lead.id } });
+    const result = scoreLead(chats, Boolean(lead.whatsapp || lead.email));
+    await prisma.lead.update({ where: { id: lead.id }, data: { score: result.total } });
     return NextResponse.json({ success: true, id: lead.id });
   } catch (error) {
     console.error('Lead API failed', error);
