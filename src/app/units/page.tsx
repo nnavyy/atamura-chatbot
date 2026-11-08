@@ -1,252 +1,138 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { t } from '@/lib/i18n';
 import { useLanguage } from '@/components/LanguageContext';
 import { formatTenge, getAllPaymentOptions } from '@/lib/calculator';
 
 interface Unit {
-  id: string; code: string; type: string; rooms: number;
-  areaSqm: number; priceMin: number; status: string;
-  view?: string; floor?: string; features?: string; floorPlan?: string;
+  id: string; code: string; type: string; rooms: number; areaSqm: number;
+  priceMin: number; status: string; view?: string; floor?: string;
+  features?: string; floorPlan?: string;
 }
+type PaymentTab = 'full' | 'installment' | 'mortgage';
 
 export default function UnitsPage() {
+  const { lang } = useLanguage();
   const [units, setUnits] = useState<Unit[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [filter, setFilter] = useState('All');
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
-  const [payTab, setPayTab] = useState<'full' | 'installment' | 'mortgage'>('installment');
-  const { lang } = useLanguage();
+  const [payTab, setPayTab] = useState<PaymentTab>('installment');
 
   useEffect(() => {
-    fetch('/api/units').then((r) => r.json()).then(setUnits).catch(console.error);
+    let active = true;
+    fetch('/api/units')
+      .then((res) => { if (!res.ok) throw new Error('Unable to load units'); return res.json(); })
+      .then((data) => { if (active) setUnits(Array.isArray(data) ? data : []); })
+      .catch(() => { if (active) setFetchError(true); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, []);
 
-  const filtered = filter === 'All' ? units : units.filter((u) => u.type === filter);
-  const tabs = ['All', '1BR', '2BR', '3BR'];
+  useEffect(() => {
+    if (!selectedUnit) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelectedUnit(null); };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [selectedUnit]);
 
-  const statusStyle: Record<string, { bg: string; text: string; label: string }> = {
-    available: { bg: 'rgba(0,200,83,0.15)', text: '#00c853', label: t('units.available', lang) },
-    reserved: { bg: 'rgba(255,152,0,0.15)', text: '#ff9800', label: t('units.reserved', lang) },
-    sold: { bg: 'rgba(239,83,80,0.15)', text: '#ef5350', label: t('units.sold', lang) },
+  const tabs = ['All', '1BR', '2BR', '3BR'];
+  const filtered = filter === 'All' ? units : units.filter((unit) => unit.type === filter);
+  const statusLabels: Record<string, string> = {
+    available: t('units.available', lang), reserved: t('units.reserved', lang), sold: t('units.sold', lang),
   };
+  const plans: Record<number, string> = { 1: '/layouts/1br.png', 2: '/layouts/2br.png', 3: '/layouts/3br.png' };
+  const paymentLabels: Record<PaymentTab, string> = {
+    full: t('payment.full', lang),
+    installment: t('payment.installment', lang),
+    mortgage: t('payment.mortgage', lang),
+  };
+  const info = {
+    en: { kicker: 'KERUEN / APARTMENTS', availability: 'Availability and prices are subject to confirmation.', details: 'View apartment details', close: 'Close details', noUnits: 'No apartments match this filter.', loading: 'Loading apartments...', error: 'Apartment data could not be loaded. Please try again later.', monthly: 'Monthly payment', tenure: 'Term', interest: 'Annual interest rate', months: 'months', savings: 'Savings', premium: 'Additional financing cost', note: 'Illustrative estimate only. The sales team and bank will confirm final pricing and conditions.', contact: 'Contact sales', type: 'Layout' },
+    ru: { kicker: 'KERUEN / КВАРТИРЫ', availability: 'Наличие и цены необходимо уточнять.', details: 'Подробнее о квартире', close: 'Закрыть', noUnits: 'Нет квартир по выбранному фильтру.', loading: 'Загрузка квартир...', error: 'Не удалось загрузить квартиры.', monthly: 'Ежемесячный платёж', tenure: 'Срок', interest: 'Годовая ставка', months: 'мес.', savings: 'Экономия', premium: 'Переплата', note: 'Предварительный расчёт. Точные условия подтвердят менеджер и банк.', contact: 'Связаться с отделом продаж', type: 'Планировка' },
+    kz: { kicker: 'KERUEN / ПӘТЕРЛЕР', availability: 'Баға мен қолжетімділікті нақтылау қажет.', details: 'Пәтер туралы толық ақпарат', close: 'Жабу', noUnits: 'Бұл сүзгіге сай пәтер табылмады.', loading: 'Пәтерлер жүктелуде...', error: 'Пәтерлер туралы ақпаратты жүктеу мүмкін болмады.', monthly: 'Ай сайынғы төлем', tenure: 'Мерзімі', interest: 'Жылдық мөлшерлеме', months: 'ай', savings: 'Үнем', premium: 'Артық төлем', note: 'Алдын ала есеп. Нақты шарттарды менеджер мен банк растайды.', contact: 'Сату бөліміне хабарласу', type: 'Жоспар' },
+  }[lang];
+  const calc = selectedUnit ? getAllPaymentOptions(selectedUnit.priceMin, selectedUnit.code)[payTab] : null;
 
   return (
-    <div style={{ paddingTop: 72 }}>
-      {/* Header */}
-      <section style={{
-        background: 'linear-gradient(135deg, #1a2332, #223C50)',
-        padding: '64px 24px 48px', textAlign: 'center',
-      }}>
-        <h1 style={{ fontSize: 'clamp(32px, 5vw, 48px)', color: '#f0f4f8', marginBottom: 16 }}>
-          {t('units.title_1', lang)} <span className="gradient-text">{t('units.title_2', lang)}</span>
-        </h1>
-        <p style={{ color: '#8899a6', fontSize: 16, maxWidth: 500, margin: '0 auto 32px' }}>
-          {t('units.desc', lang)}
-        </p>
-        {/* Filter tabs */}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+    <main className="catalog-shell">
+      <div className="container">
+        <header className="page-intro">
+          <span className="eyebrow">{info.kicker}</span>
+          <h1>{t('units.title', lang)}</h1>
+          <p>{t('units.desc', lang)} {info.availability}</p>
+        </header>
+        <div className="filter-bar" role="group" aria-label="Filter apartments by room type">
           {tabs.map((tab) => (
-            <button key={tab} onClick={() => setFilter(tab)} style={{
-              padding: '10px 24px', borderRadius: 10, fontSize: 14, fontWeight: 600,
-              cursor: 'pointer', transition: 'all 0.2s', border: 'none',
-              background: filter === tab ? 'linear-gradient(135deg, #007484, #00a3b8)' : 'rgba(255,255,255,0.06)',
-              color: filter === tab ? 'white' : '#8899a6',
-              boxShadow: filter === tab ? '0 4px 15px rgba(0,116,132,0.3)' : 'none',
-            }} id={`filter-${tab.toLowerCase()}`}>
+            <button id={`filter-${tab.toLowerCase()}`} className="filter-button" type="button" aria-pressed={filter === tab} key={tab} onClick={() => setFilter(tab)}>
               {tab === 'All' ? t('units.all', lang) : tab}
             </button>
           ))}
         </div>
-      </section>
 
-      {/* Grid */}
-      <section style={{ padding: '48px 24px', background: '#0f1419' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 24 }}>
-          {filtered.map((unit) => {
-            const ss = statusStyle[unit.status] || statusStyle.available;
-            const features = unit.features ? JSON.parse(unit.features) : [];
-            return (
-              <div key={unit.id} className="card" style={{
-                padding: '28px', cursor: 'pointer',
-                opacity: unit.status === 'sold' ? 0.6 : 1,
-              }} onClick={() => unit.status !== 'sold' && setSelectedUnit(unit)}>
-                {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <div>
-                    <h3 style={{ fontSize: 24, fontWeight: 800, color: '#f0f4f8' }}>Unit {unit.code}</h3>
-                    <span style={{ fontSize: 13, color: '#8899a6' }}>{unit.type}</span>
-                  </div>
-                  <span style={{
-                    background: ss.bg, color: ss.text,
-                    padding: '5px 12px', borderRadius: 12,
-                    fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-                  }}>{ss.label}</span>
+        {loading ? <div className="catalog-state" role="status">{info.loading}</div>
+        : fetchError ? <div className="catalog-state" role="alert">{info.error}</div>
+        : filtered.length === 0 ? <div className="catalog-state">{info.noUnits}</div>
+        : (
+          <div className="listing-grid">
+            {filtered.map((unit) => (
+              <button key={unit.id} type="button" className="listing-card" disabled={unit.status === 'sold'} onClick={() => { setSelectedUnit(unit); setPayTab('installment'); }} aria-label={`${info.details} ${unit.code}`}>
+                <div className="listing-plan">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={unit.floorPlan || plans[unit.rooms] || '/layouts/1br.png'} alt={`Unit ${unit.code} floor plan`} loading="lazy" />
                 </div>
-                {/* Details */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                  <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: 10 }}>
-                    <div style={{ fontSize: 11, color: '#536471', marginBottom: 4 }}>{t('units.area_title', lang)}</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: '#f0f4f8' }}>{unit.areaSqm} m²</div>
+                <div className="listing-body">
+                  <div className="listing-top">
+                    <div><h3>Unit {unit.code}</h3><span style={{fontSize:12,color:'#748176'}}>{unit.type}</span></div>
+                    <span className={`listing-status ${unit.status}`}><span className={`status-dot ${unit.status}`} />{statusLabels[unit.status] || unit.status}</span>
                   </div>
-                  <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: 10 }}>
-                    <div style={{ fontSize: 11, color: '#536471', marginBottom: 4 }}>{t('units.rooms_title', lang)}</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: '#f0f4f8' }}>{unit.rooms}</div>
-                  </div>
-                  {unit.view && (
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: 10 }}>
-                      <div style={{ fontSize: 11, color: '#536471', marginBottom: 4 }}>{t('units.view', lang)}</div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: '#f0f4f8' }}>{unit.view}</div>
-                    </div>
-                  )}
-                  {unit.floor && (
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: 10 }}>
-                      <div style={{ fontSize: 11, color: '#536471', marginBottom: 4 }}>{t('units.floors', lang)}</div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: '#f0f4f8' }}>{unit.floor}</div>
-                    </div>
-                  )}
-                </div>
-                {/* Features */}
-                {features.length > 0 && (
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
-                    {features.slice(0, 3).map((f: string, i: number) => (
-                      <span key={i} style={{
-                        background: 'rgba(0,116,132,0.1)', color: '#00a3b8',
-                        padding: '4px 10px', borderRadius: 8, fontSize: 11, fontWeight: 500,
-                      }}>{f}</span>
-                    ))}
-                  </div>
-                )}
-                {/* Price */}
-                <div style={{
-                  borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16,
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                }}>
-                  <div>
-                    <div style={{ fontSize: 12, color: '#536471' }}>{t('units.starting_from', lang)}</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: '#00a3b8' }}>
-                      {formatTenge(unit.priceMin)}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 12, color: '#536471' }}>
-                    {Math.round(unit.priceMin / unit.areaSqm).toLocaleString('ru-RU')} ₸/m²
+                  <p className="listing-details">{unit.areaSqm} m² <span style={{margin:'0 8px'}}>·</span> {unit.rooms} {t('units.rooms', lang)}{unit.view ? ` · ${unit.view}` : ''}</p>
+                  <div className="listing-price">
+                    <small>{t('units.starting_from', lang)}</small>
+                    <strong>{formatTenge(unit.priceMin)}</strong>
+                    <span>{Math.round(unit.priceMin / unit.areaSqm).toLocaleString('ru-RU')} ₸/m²</span>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-      {/* Detail Modal */}
-      {selectedUnit && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 2000,
-          background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 24, animation: 'fadeIn 0.3s ease-out',
-        }} onClick={() => setSelectedUnit(null)}>
-          <div style={{
-            background: '#1a2332', borderRadius: 20, maxWidth: 520, width: '100%',
-            maxHeight: '85vh', overflowY: 'auto', padding: '32px',
-            border: '1px solid rgba(255,255,255,0.08)',
-            boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
-          }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
+      {selectedUnit && calc && (
+        <div className="modal-backdrop" onClick={() => setSelectedUnit(null)}>
+          <section className="unit-modal" role="dialog" aria-modal="true" aria-labelledby="unit-modal-title" onClick={(event) => event.stopPropagation()}>
+            <div className="unit-modal-head">
               <div>
-                <h2 style={{ fontSize: 28, fontWeight: 800, color: '#f0f4f8' }}>Unit {selectedUnit.code}</h2>
-                <span style={{ color: '#8899a6' }}>{selectedUnit.type} · {selectedUnit.areaSqm} m² · {selectedUnit.rooms} rooms</span>
+                <span className="section-index">KERUEN / {info.type.toUpperCase()}</span>
+                <h2 id="unit-modal-title">Unit {selectedUnit.code}</h2>
+                <p style={{color:'#6d7a70',fontSize:13,marginTop:8}}>{selectedUnit.type} · {selectedUnit.areaSqm} m² · {selectedUnit.rooms} {t('units.rooms', lang)}</p>
               </div>
-              <button onClick={() => setSelectedUnit(null)} style={{
-                background: 'none', border: 'none', color: '#8899a6',
-                fontSize: 24, cursor: 'pointer',
-              }}>×</button>
+              <button className="modal-close" aria-label={info.close} type="button" onClick={() => setSelectedUnit(null)}>×</button>
             </div>
-
-            {/* Layout Image */}
-            {selectedUnit.floorPlan && (
-              <div style={{
-                width: '100%', height: 280, borderRadius: 14, overflow: 'hidden',
-                background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                marginBottom: 24
-              }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img 
-                  src={selectedUnit.floorPlan} 
-                  alt={`Layout ${selectedUnit.code}`} 
-                  style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-                />
-              </div>
-            )}
-
-            {/* Payment tabs */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-              {(['full', 'installment', 'mortgage'] as const).map((m) => (
-                <button key={m} onClick={() => setPayTab(m)} style={{
-                  flex: 1, padding: '10px', borderRadius: 10, border: 'none',
-                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                  background: payTab === m ? 'linear-gradient(135deg, #007484, #00a3b8)' : 'rgba(255,255,255,0.06)',
-                  color: payTab === m ? 'white' : '#8899a6',
-                }}>
-                  {m === 'full' ? '💎 Full' : m === 'installment' ? '📊 Installment' : '🏦 Mortgage'}
-                </button>
+            <div className="unit-modal-plan">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={selectedUnit.floorPlan || plans[selectedUnit.rooms]} alt={`Floor plan for unit ${selectedUnit.code}`} />
+            </div>
+            <div className="payment-tabs" role="group" aria-label="Payment method">
+              {(['full','installment','mortgage'] as const).map((tab) => (
+                <button className="payment-tab" type="button" aria-pressed={payTab === tab} key={tab} onClick={() => setPayTab(tab)}>{paymentLabels[tab]}</button>
               ))}
             </div>
-
-            {/* Calculation */}
-            {(() => {
-              const opts = getAllPaymentOptions(selectedUnit.priceMin, selectedUnit.code);
-              const calc = opts[payTab];
-              return (
-                <div style={{
-                  background: 'rgba(0,116,132,0.08)', border: '1px solid rgba(0,116,132,0.2)',
-                  borderRadius: 14, padding: '20px', marginBottom: 20,
-                }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#8899a6', fontSize: 14 }}>Down Payment ({calc.dpPercent}%)</span>
-                      <span style={{ color: '#f0f4f8', fontWeight: 700 }}>{formatTenge(calc.dp)}</span>
-                    </div>
-                    {calc.monthly > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#8899a6', fontSize: 14 }}>Monthly Payment</span>
-                        <span style={{ color: '#00a3b8', fontWeight: 700 }}>{formatTenge(calc.monthly)}</span>
-                      </div>
-                    )}
-                    {calc.tenor > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#8899a6', fontSize: 14 }}>Tenor</span>
-                        <span style={{ color: '#f0f4f8' }}>{calc.tenor} months</span>
-                      </div>
-                    )}
-                    {calc.interestRate > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#8899a6', fontSize: 14 }}>Interest Rate</span>
-                        <span style={{ color: '#f0f4f8' }}>{calc.interestRate}% p.a.</span>
-                      </div>
-                    )}
-                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12, display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#8899a6', fontWeight: 600 }}>Total</span>
-                      <span style={{ color: '#C9A96E', fontWeight: 800, fontSize: 18 }}>{formatTenge(calc.total)}</span>
-                    </div>
-                    {calc.savings !== 0 && (
-                      <div style={{ fontSize: 12, color: calc.savings > 0 ? '#00c853' : '#ef5350', textAlign: 'right' }}>
-                        {calc.savings > 0 ? `You save ${formatTenge(calc.savings)}` : `Overpayment: ${formatTenge(Math.abs(calc.savings))}`}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-
-            <a href="tel:+77007001111" className="btn-primary" style={{
-              display: 'block', textAlign: 'center', textDecoration: 'none',
-              padding: '14px', borderRadius: 12, fontSize: 15,
-            }}>
-              📞 Contact Sales: +7 700 700 1111
-            </a>
-          </div>
+            <div className="calculation-rows">
+              <div className="calculation-row"><span>{t('payment.dp', lang)} ({calc.dpPercent}%)</span><strong>{formatTenge(calc.dp)}</strong></div>
+              {calc.monthly > 0 && <div className="calculation-row"><span>{info.monthly}</span><strong>{formatTenge(calc.monthly)}</strong></div>}
+              {calc.tenor > 0 && <div className="calculation-row"><span>{info.tenure}</span><strong>{calc.tenor} {info.months}</strong></div>}
+              {calc.interestRate > 0 && <div className="calculation-row"><span>{info.interest}</span><strong>{calc.interestRate}%</strong></div>}
+              <div className="calculation-row"><span>{t('payment.total', lang)}</span><strong>{formatTenge(calc.total)}</strong></div>
+              {calc.savings !== 0 && <div className="calculation-row"><span>{calc.savings > 0 ? info.savings : info.premium}</span><strong>{formatTenge(Math.abs(calc.savings))}</strong></div>}
+            </div>
+            <p className="modal-disclaimer">{info.note}</p>
+            <a href="tel:+77007001111" className="btn-primary" style={{width:'100%'}}>{info.contact} ↗</a>
+          </section>
         </div>
       )}
-    </div>
+    </main>
   );
 }
