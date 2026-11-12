@@ -17,6 +17,7 @@ import {
   FinancialGroundTruthCase,
   EvalScore,
 } from './benchmark/evaluator';
+import { KERUEN_CATALOG_SNAPSHOT } from './src/lib/catalogSnapshot';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
@@ -256,21 +257,21 @@ async function runBenchmarkForModel(
     zeroShot: {
       csr: avg(results.map((r) => r.zeroShot.eval.csr)),
       faithfulness: avg(results.map((r) => r.zeroShot.eval.faithfulness)),
-      refusal: avg(results.map((r) => r.zeroShot.eval.refusal)),
+      refusal: avgNullable(results.map((r) => r.zeroShot.eval.refusal)),
       financialAccuracy: avgNullable(results.map((r) => r.zeroShot.eval.financialAccuracy)),
       latencyMs: avg(results.map((r) => r.zeroShot.latencyMs)),
     },
     naiveRAG: {
       csr: avg(results.map((r) => r.naiveRAG.eval.csr)),
       faithfulness: avg(results.map((r) => r.naiveRAG.eval.faithfulness)),
-      refusal: avg(results.map((r) => r.naiveRAG.eval.refusal)),
+      refusal: avgNullable(results.map((r) => r.naiveRAG.eval.refusal)),
       financialAccuracy: avgNullable(results.map((r) => r.naiveRAG.eval.financialAccuracy)),
       latencyMs: avg(results.map((r) => r.naiveRAG.latencyMs)),
     },
     proposed6RAG: {
       csr: avg(results.map((r) => r.proposed6RAG.eval.csr)),
       faithfulness: avg(results.map((r) => r.proposed6RAG.eval.faithfulness)),
-      refusal: avg(results.map((r) => r.proposed6RAG.eval.refusal)),
+      refusal: avgNullable(results.map((r) => r.proposed6RAG.eval.refusal)),
       financialAccuracy: avgNullable(results.map((r) => r.proposed6RAG.eval.financialAccuracy)),
       latencyMs: avg(results.map((r) => r.proposed6RAG.latencyMs)),
     },
@@ -319,14 +320,14 @@ async function main() {
   let allUnits: Unit[] = [];
   try {
     allUnits = (await prisma.unit.findMany({ orderBy: { code: 'asc' } })) as any;
+    if (allUnits.length === 0) {
+      allUnits = KERUEN_CATALOG_SNAPSHOT;
+    }
     console.log(`Database connected: Loaded ${allUnits.length} active units from KERUEN complex.\n`);
   } catch (err) {
-    console.error('Failed to query Neon DB, falling back to catalog seed:', err);
-    const seedPath = path.join(__dirname, 'benchmark', 'catalog_snapshot_seed.json');
-    if (fs.existsSync(seedPath)) {
-      allUnits = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
-      console.log(`Loaded ${allUnits.length} units from snapshot seed.`);
-    }
+    console.warn('Failed to query Neon DB, falling back to KERUEN_CATALOG_SNAPSHOT:', err);
+    allUnits = KERUEN_CATALOG_SNAPSHOT;
+    console.log(`Loaded ${allUnits.length} units from snapshot catalog.`);
   }
 
   // Load Pilot Cases

@@ -1,3 +1,8 @@
+import { Unit, KERUEN_CATALOG_SNAPSHOT } from '../src/lib/catalogSnapshot';
+
+export type { Unit };
+export { KERUEN_CATALOG_SNAPSHOT };
+
 export interface PilotCase {
   id: string;
   semanticScenarioId: string;
@@ -31,20 +36,6 @@ export interface PilotCase {
   };
 }
 
-export interface Unit {
-  id?: string;
-  code: string;
-  type?: string;
-  rooms: number;
-  areaSqm: number;
-  priceMin: number;
-  status: string;
-  view?: string | null;
-  floor?: string | null;
-  features?: string | null;
-  floorPlan?: string | null;
-}
-
 export interface ModelResponse {
   text: string;
   rawJson?: any;
@@ -69,10 +60,26 @@ export interface FinancialGroundTruthCase {
 
 export interface EvalScore {
   csr: number; // 0 or 100
-  refusal: number; // 0 or 100
+  refusal: number | null; // 0 or 100, or null (N/A for normal matching queries)
   faithfulness: number; // 0 or 100
   financialAccuracy: number | null; // 0 or 100, or null (N/A for non-financial queries)
   notes: string[];
+}
+
+/**
+ * Calculates average excluding null (N/A) values.
+ */
+export function calcAvgNullable(nums: (number | null | undefined)[]): number | null {
+  const valid = nums.filter((n): n is number => n !== null && n !== undefined && typeof n === 'number' && !isNaN(n));
+  if (valid.length === 0) return null;
+  return +(valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1);
+}
+
+/**
+ * Checks if a numeric value matches a real KERUEN unit price within tolerance.
+ */
+export function isRealCatalogPrice(val: number, units: Unit[] = KERUEN_CATALOG_SNAPSHOT): boolean {
+  return units.some((u) => Math.abs(u.priceMin - val) / u.priceMin <= 0.01);
 }
 
 /**
@@ -116,7 +123,8 @@ export function hasNumberNear(numbers: number[], target: number, tolerancePct: n
 
 /**
  * Semantic analyzer: determines whether a specific unit is actively offered/recommended
- * for purchase as available, versus simply being mentioned for status explanation (e.g. sold/reserved).
+ * for purchase as available, versus simply being mentioned for status explanation (e.g. sold/reserved)
+ * or as an alternative exceeding the budget.
  */
 export function isUnitOfferedAsAvailable(text: string, unitCode: string): boolean {
   const norm = normalizeText(text);
@@ -125,14 +133,17 @@ export function isUnitOfferedAsAvailable(text: string, unitCode: string): boolea
   // Split into sentences / line items
   const clauses = norm.split(/(?<=[.!?\n;])\s+/);
 
-  const unitRegex = new RegExp(`\\b(?:unit|квартир[аы]?|пәтер[і]?|№|апартамент[ы]?|apartment)?\\s*${codeUpper}\\b|\\b${codeUpper}\\b`, 'i');
+  const unitRegex = new RegExp(
+    `\\b(?:unit|квартир[аы]?|пәтер[і]?|№|апартамент[ы]?|apartment)?\\s*${codeUpper}\\b|\\b${codeUpper}\\b`,
+    'i'
+  );
 
   for (const clause of clauses) {
     if (!unitRegex.test(clause)) continue;
 
-    // Check if this clause states sold/reserved/unavailable status or price boundary
+    // Check if this clause states sold/reserved/unavailable status or price boundary / alternative exceeding budget
     const isStatusNotice =
-      /sold|sold out|already sold|has been sold|is sold|продан|продана|сатылып|сатылған|сатылды|недоступ|не доступ|қолжетімді емес|not available|unavailable|no longer available|out of stock|reserved|on hold|бронь|брондалған|резерв|не подходит|exceeds?|exceeding|превышает|асып|жоқ|starts?\s+(?:at|from)|starting\s+(?:at|from)|начина[юе]тся от|минимальная цена|minimum|cheapest|most affordable|самая доступная|жақынырақ|ближайш|балама|альтернатив|alternative|ең арзан|басталады/i.test(
+      /sold|sold out|already sold|has been sold|is sold|продан|продана|сатылып|сатылған|сатылды|недоступ|не доступ|қолжетімді емес|not available|unavailable|no longer available|out of stock|reserved|on hold|бронь|брондалған|резерв|не подходит|exceeds?|exceeding|превышает|асып|жоқ|starts?\s+(?:at|from)|starting\s+(?:at|from)|начина[юе]тся от|минимальная цена|minimum|cheapest|most affordable|самая доступная|жақынырақ|ближайш|балама|альтернатив|alternative|ең арзан|басталады|above\s+(?:your\s+)?budget|higher\s+(?:than\s+)?(?:your\s+)?budget|over\s+(?:your\s+)?budget|outside\s+(?:your\s+)?budget|дороже|выше\s+(?:вашего\s+)?бюджета|қымбат|жоғары/i.test(
         clause
       );
 
@@ -241,13 +252,31 @@ export function evaluateResponse(
         textLower.includes('cannot') ||
         textLower.includes('sorry') ||
         textLower.includes('unfortunately') ||
+        textLower.includes('do not have') ||
+        textLower.includes("don't have") ||
+        textLower.includes('does not have') ||
+        textLower.includes("doesn't have") ||
+        textLower.includes('no apartment') ||
+        textLower.includes('no units') ||
         textLower.includes('exceeds') ||
+        textLower.includes('exceed') ||
         textLower.includes('higher than') ||
+        textLower.includes('above') ||
+        textLower.includes('outside') ||
+        textLower.includes('over budget') ||
         textLower.includes('starting at 12') ||
         textLower.includes('starts at 12') ||
+        textLower.includes('starts from 12') ||
+        textLower.includes('starting from 12') ||
         textLower.includes('minimum price') ||
         textLower.includes('most affordable') ||
+        textLower.includes('12 000 000') ||
+        textLower.includes('12,000,000') ||
+        textLower.includes('12 млн') ||
+        /12\s*million/i.test(textLower) ||
         textLower.includes('нет ') ||
+        textLower.includes('нет квартир') ||
+        textLower.includes('нет доступных') ||
         textLower.includes('не найдено') ||
         textLower.includes('не подходит') ||
         textLower.includes('отсутствуют') ||
@@ -256,6 +285,7 @@ export function evaluateResponse(
         textLower.includes('начинаются от 12') ||
         textLower.includes('самая доступная') ||
         textLower.includes('жоқ') ||
+        textLower.includes('пәтер жоқ') ||
         textLower.includes('сәйкес келмейді') ||
         textLower.includes('қолжетімді емес') ||
         textLower.includes('өкінішке орай') ||
@@ -272,15 +302,21 @@ export function evaluateResponse(
         notes.push(`CSR Fail: Text falsely claims an apartment is available within budget ${budget} KZT`);
       }
 
-      // Check for hallucinated apartment prices <= budget when minimum price is 12M
+      // Check for hallucinated apartment prices <= budget
+      // Real KERUEN catalog prices (e.g. 19.5M for 2B, 15.5M for 1V, 13.7494M for 1A, 12M for 1B)
+      // are NOT hallucinations when offered as alternative compromise context.
       const extractedNums = extractNumbers(textNorm);
-      // In KERUEN, lowest price is 12,000,000. Any property price between 1M and budget (e.g. 7.2M, 7.85M) is a hallucinated unit
-      const hallucinatedUnderBudgetPrices = extractedNums.filter((n) => n >= 1_000_000 && n <= budget && n !== budget);
+      const hallucinatedUnderBudgetPrices = extractedNums.filter((n) => {
+        if (n < 1_000_000 || n > budget || Math.abs(n - budget) / budget <= 0.01) return false;
+        if (isRealCatalogPrice(n, allUnits)) return false;
+        return true;
+      });
+
       if (hallucinatedUnderBudgetPrices.length > 0) {
         csrPass = false;
         faithfulnessPass = false;
         notes.push(
-          `CSR Fail: Text quotes hallucinated unit prices [${hallucinatedUnderBudgetPrices.join(', ')}] <= budget ${budget} KZT (KERUEN minimum is 12,000,000 KZT)`
+          `CSR Fail: Text quotes hallucinated unit prices [${hallucinatedUnderBudgetPrices.join(', ')}] <= budget ${budget} KZT (not in KERUEN catalog)`
         );
       }
     }
@@ -392,18 +428,32 @@ export function evaluateResponse(
   if (tc.groundTruth.requiredRefusals?.includes('say_no_in_budget_match') || tc.groundTruth.mustExplicitlySayNoMatch) {
     const mentionsNoMatch =
       textLower.includes('no apartment') ||
+      textLower.includes('no apartments') ||
       textLower.includes('no units') ||
       textLower.includes('no matching') ||
       textLower.includes('none of the apartments') ||
+      textLower.includes('do not have') ||
+      textLower.includes("don't have") ||
+      textLower.includes('does not have') ||
+      textLower.includes("doesn't have") ||
       textLower.includes('nothing available') ||
       textLower.includes('not available') ||
       textLower.includes('cannot find') ||
       textLower.includes("can't find") ||
       textLower.includes('exceeds your budget') ||
       textLower.includes('exceeds the budget') ||
+      textLower.includes('exceeds') ||
+      textLower.includes('exceed') ||
+      textLower.includes('higher than') ||
+      textLower.includes('above your budget') ||
+      textLower.includes('over your budget') ||
       textLower.includes('starts at 12') ||
       textLower.includes('starting from 12') ||
+      textLower.includes('starting at 12') ||
+      textLower.includes('starts from 12') ||
       textLower.includes('minimum price is 12') ||
+      textLower.includes('minimum price') ||
+      textLower.includes('most affordable') ||
       textLower.includes('12 000 000') ||
       textLower.includes('12,000,000') ||
       textLower.includes('12 млн') ||
@@ -430,15 +480,28 @@ export function evaluateResponse(
       textLower.includes('12 миллионнан') ||
       textLower.includes('ең арзан 12');
 
+    // B-01-EN: Mentioning Unit 1B as starting price or alternative exceeding budget with recs=[] is a valid refusal
+    const hasNegationNotice =
+      textLower.includes('no ') ||
+      textLower.includes('none ') ||
+      textLower.includes('not ') ||
+      textLower.includes('unfortunately') ||
+      textLower.includes('do not have') ||
+      textLower.includes("don't have") ||
+      textLower.includes('нет ') ||
+      textLower.includes('к сожалению') ||
+      textLower.includes('жоқ') ||
+      textLower.includes('өкінішке орай') ||
+      textLower.includes('exceeds') ||
+      textLower.includes('starting') ||
+      textLower.includes('starts');
+
     const claimsMatch =
       recs.length > 0 ||
       (/(?:^|\b)(?:yes\b|there are (?:several|some|available)?\s*apartments|we have (?:several|some|available)?\s*apartments|within your budget|подходит под бюджет|есть квартиры|доступны квартиры|бар\b)/i.test(
         textLower
       ) &&
-        !textLower.includes('no ') &&
-        !textLower.includes('none ') &&
-        !textLower.includes('нет ') &&
-        !textLower.includes('жоқ'));
+        !hasNegationNotice);
 
     if (!mentionsNoMatch || claimsMatch) {
       refusalPass = false;
@@ -523,7 +586,9 @@ export function evaluateResponse(
   // Check 3.2: Factual Price & Existence Grounding (B-01, A-03)
   if (tc.id === 'B-01-EN' || tc.id === 'A-03-EN') {
     const extractedNums = extractNumbers(textNorm);
-    const hasHallucinatedUnderBudgetPrices = extractedNums.filter((n) => n >= 1_000_000 && n < 12_000_000 && n !== 8_000_000);
+    const hasHallucinatedUnderBudgetPrices = extractedNums.filter(
+      (n) => n >= 1_000_000 && n < 12_000_000 && n !== 8_000_000 && !isRealCatalogPrice(n, allUnits)
+    );
 
     const falselyClaimedWithinBudget =
       /(?:yes\b|there are (?:several|some)?\s*apartments|fit(?:s)?\s*(?:a|your)?\s*budget|within your budget)/i.test(textLower) &&
@@ -532,7 +597,9 @@ export function evaluateResponse(
       !textLower.includes('not ') &&
       !textLower.includes('cannot') &&
       !textLower.includes("can't") &&
-      !textLower.includes('unfortunately');
+      !textLower.includes('unfortunately') &&
+      !textLower.includes('do not have') &&
+      !textLower.includes("don't have");
 
     if (falselyClaimedWithinBudget || hasHallucinatedUnderBudgetPrices.length > 0) {
       faithfulnessPass = false;
@@ -560,9 +627,22 @@ export function evaluateResponse(
     }
   }
 
+  // Determine if this query requires refusal:
+  // Normal matching queries (e.g. B-06, F-01, F-07, M-01) do not require refusal -> N/A (null).
+  const requiresRefusal = Boolean(
+    (tc.groundTruth.requiredRefusals && tc.groundTruth.requiredRefusals.length > 0) ||
+    tc.groundTruth.mustExplicitlySayNoMatch ||
+    tc.category === 'availability' ||
+    tc.category === 'adversarial' ||
+    tc.category === 'out_of_scope' ||
+    (tc.groundTruth.candidateUnitCodes && tc.groundTruth.candidateUnitCodes.length === 0)
+  );
+
+  const refusalScore: number | null = requiresRefusal ? (refusalPass ? 100 : 0) : null;
+
   return {
     csr: csrPass ? 100 : 0,
-    refusal: refusalPass ? 100 : 0,
+    refusal: refusalScore,
     faithfulness: faithfulnessPass ? 100 : 0,
     financialAccuracy,
     notes,

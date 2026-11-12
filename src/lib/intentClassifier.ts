@@ -35,8 +35,8 @@ const intentPatterns: { intent: Intent; patterns: RegExp[] }[] = [
   {
     intent: 'dp_calculation',
     patterns: [
-      /dp|down\s*payment|первоначальн|взнос|бастапқы/i,
-      /installment|рассрочк|бөліп\s*төлеу/i,
+      /dp|down\s*payment|первоначальн|взнос|бастапқы|жарна/i,
+      /installment|рассрочк|бөліп\s*төлеу|есепт|калькуля|расчет|расчёт|пайыз|сценарий/i,
       /mortgage|ипотек|несие/i,
     ],
   },
@@ -175,27 +175,33 @@ export function extractEntities(message: string): Record<string, unknown> {
 
   // 5. Custom DP, Rate, and Tenor extraction (e.g. "DP 40%", "24 bulan", "взнос 40%", "24 месяца", "40% жарна", "24 ай", "15% ставка")
   const dpPctMatch =
-    message.match(/(\d{1,2})\s*%\s*(?:down(?:\s*payment)?|взнос[а-я]*|жарна|dp)/i) ||
-    message.match(/(?:dp|down\s*payment|взнос[а-я]*|бастапқы\s*жарна)\s*(\d{1,2})\s*%/i) ||
-    message.match(/(\d{1,2})%\s*бастапқы/i);
+    message.match(/(\d{1,2})\s*%\s*(?:down(?:\s*payment)?|взнос[а-яё]*|жарна[а-яё]*|бастапқы\s*жарна|dp|uang\s*muka)/i) ||
+    message.match(/(?:dp|down\s*payment|взнос[а-яё]*|бастапқы\s*жарна|жарна|uang\s*muka)\s*(\d{1,2})\s*%/i) ||
+    message.match(/(\d{1,2})%\s*(?:бастапқы|жарна)/i);
   if (dpPctMatch) {
     const val = parseInt(dpPctMatch[1]);
     if (val >= 5 && val <= 90) entities.custom_dp = val;
   }
 
   const rateMatch =
-    message.match(/(\d{1,2}(?:\.\d+)?)\s*%\s*(?:annual\s*interest|годовых|ставк[а-я]*|мөлшерлеме|interest|rate|bunga)/i) ||
-    message.match(/(?:annual\s*interest|ставк[а-я]*|годовых|мөлшерлеме|rate|bunga)\s*(\d{1,2}(?:\.\d+)?)\s*%/i) ||
+    message.match(/(\d{1,2}(?:\.\d+)?)\s*%\s*(?:annual\s*interest|годовых|ставк[а-яё]*|мөлшерлеме|пайыз|interest|rate|bunga)/i) ||
+    message.match(/(?:annual\s*interest|ставк[а-яё]*|годовых|мөлшерлеме|пайыз|rate|bunga)\s*(\d{1,2}(?:\.\d+)?)\s*%/i) ||
     message.match(/жылдық\s*(\d{1,2}(?:\.\d+)?)\s*%/i);
   if (rateMatch) {
     const val = parseFloat(rateMatch[1]);
     if (val >= 0 && val <= 50) entities.custom_rate = val;
   }
 
-  const tenorMatch = message.match(/(\d{1,3})\s*(?:bulan|months?|месяц(?:а|ев)?|ай)(?:[\s,.;:]|$)/i);
+  const tenorMatch = message.match(/(\d{1,3})\s*(?:bulan|months?|месяц(?:а|ев)?|ай(?:ға)?)(?:[\s,.;:]|$)/i);
   if (tenorMatch) {
     const months = parseInt(tenorMatch[1]);
     if (months >= 1 && months <= 360) entities.custom_tenor = months;
+  }
+
+  const yearTenorMatch = message.match(/(\d{1,2})\s*(?:years?|года?|лет|жыл(?:ға)?)(?:[\s,.;:]|$)/i);
+  if (!entities.custom_tenor && yearTenorMatch) {
+    const years = parseInt(yearTenorMatch[1]);
+    if (years >= 1 && years <= 30) entities.custom_tenor = years * 12;
   }
 
   return entities;

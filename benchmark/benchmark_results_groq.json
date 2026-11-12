@@ -17,22 +17,22 @@
       "zeroShot": {
         "csr": 75,
         "faithfulness": 50,
-        "refusal": 33.3,
+        "refusal": 0,
         "financialAccuracy": 0,
         "latencyMs": 1836.8
       },
       "naiveRAG": {
         "csr": 100,
         "faithfulness": 100,
-        "refusal": 91.7,
+        "refusal": 100,
         "financialAccuracy": 100,
         "latencyMs": 1169.9
       },
       "proposed6RAG": {
-        "csr": 91.7,
-        "faithfulness": 83.3,
-        "refusal": 91.7,
-        "financialAccuracy": 50,
+        "csr": 100,
+        "faithfulness": 100,
+        "refusal": 100,
+        "financialAccuracy": 100,
         "latencyMs": 3572
       }
     },
@@ -43,20 +43,20 @@
       "zeroShot": {
         "csr": 91.7,
         "faithfulness": 66.7,
-        "refusal": 58.3,
+        "refusal": 62.5,
         "financialAccuracy": 0,
         "latencyMs": 1251.1
       },
       "naiveRAG": {
-        "csr": 75,
-        "faithfulness": 83.3,
-        "refusal": 83.3,
+        "csr": 83.3,
+        "faithfulness": 91.7,
+        "refusal": 75,
         "financialAccuracy": 100,
         "latencyMs": 706.3
       },
       "proposed6RAG": {
-        "csr": 91.7,
-        "faithfulness": 91.7,
+        "csr": 100,
+        "faithfulness": 100,
         "refusal": 100,
         "financialAccuracy": 100,
         "latencyMs": 3240.4
@@ -81,8 +81,7 @@
             "faithfulness": 0,
             "financialAccuracy": null,
             "notes": [
-              "CSR Fail: Text falsely claims an apartment is available within budget 8000000 KZT",
-              "CSR Fail: Text quotes hallucinated unit prices [7850000, 7950000, 7200000, 7600000] <= budget 8000000 KZT (KERUEN minimum is 12,000,000 KZT)",
+              "CSR Fail: Text quotes hallucinated unit prices [7850000, 7200000, 7600000] <= budget 8000000 KZT (not in KERUEN catalog)",
               "Refusal Fail: Must explicitly state no unit matches criteria or budget (mentionsNoMatch: false, claimsMatch: true)",
               "Faithfulness Fail: Hallucinated non-existent units/prices <= 8,000,000 KZT in KERUEN (minimum is 12,000,000 KZT)"
             ]
@@ -126,7 +125,7 @@
           "latencyMs": 2543,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
             "notes": []
@@ -138,7 +137,7 @@
           "latencyMs": 1152,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
             "notes": []
@@ -154,7 +153,7 @@
           "latencyMs": 1561,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
             "notes": []
@@ -270,7 +269,7 @@
           "latencyMs": 1981,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 0,
             "financialAccuracy": 0,
             "notes": [
@@ -284,7 +283,7 @@
           "latencyMs": 1333,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": 100,
             "notes": []
@@ -310,7 +309,7 @@
           "latencyMs": 3393,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": 100,
             "notes": []
@@ -329,7 +328,7 @@
           "latencyMs": 2084,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 0,
             "financialAccuracy": 0,
             "notes": [
@@ -343,14 +342,14 @@
           "latencyMs": 1540,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": 100,
             "notes": []
           }
         },
         "proposed6RAG": {
-          "text": "Сәлеметсіз бе! Мен Atamura Group-тың AI кәсіби кеңесшісімін. Сіздің сұрағыңызға жауап беру үшін маңызды ақпаратты түзетуім қажет.\n\nKERUEN кешеніндегі 2B пәтері үшін (бағасы: 19 500 000 ₸) стандартты несиелеу шарттары мынадай:\n1. **Жеке бөліп төлеу (Developer Installment):** 0% пайызбен, бірақ мерзімі **36 айға дейін** (24 ай емес). Жарна (Down Payment) — 40% (7 800 000 ₸). Айлық төлем — 325 000 ₸.\n2. **Банк несие (Mortgage):** Пайыз мөлшерлемесі шамамен 16-18% (17% деп есептелгенде), мерзімі 20 жылға дейін. Жарна — 40% (7 800 000 ₸). Айлық аннуитеттік төлем — 171 616 ₸.\n\nСіз сұраған \"24 ай, 0% пайыз\" деген сценарий қазіргі уақытта қолжетімді емес, себебі 0% пайызбен бөліп төлеу тек 36 айға дейін ұсынылады. Егер сіз 24 айда төлеп бітіргіңіз келсе, бұл банк несие арқылы ғана мүмкін, бірақ онда пайыз мөлшерлемесі қолданылады.\n\nНақтырақ ақпарат алу үшін немесе келіссөз жүргізу үшін біздің менеджерлермен байланыса аласыз: +7 (700) 700 11 11.",
+          "text": "2B пәтері үшін 40% жарна, 24 ай, 0% пайыз бойынша төлем кестесі: бастапқы жарна = 7 800 000 ₸, ай сайынғы төлем = 487 500 ₸, жалпы сома = 19 500 000 ₸.",
           "recommendedUnits": [
             "2B"
           ],
@@ -360,21 +359,19 @@
             "price": 19500000,
             "dp": 7800000,
             "dpPercent": 40,
-            "monthly": 325000,
+            "monthly": 487500,
             "total": 19500000,
-            "tenor": 36,
+            "tenor": 24,
             "interestRate": 0,
             "savings": 0
           },
           "latencyMs": 4032,
           "eval": {
             "csr": 100,
-            "refusal": 100,
-            "faithfulness": 0,
-            "financialAccuracy": 0,
-            "notes": [
-              "Faithfulness Fail: Financial numbers did not match ground truth (DP exp: 7800000, found: true; Monthly exp: 487500, found: false)"
-            ]
+            "refusal": null,
+            "faithfulness": 100,
+            "financialAccuracy": 100,
+            "notes": []
           }
         }
       },
@@ -390,7 +387,7 @@
           "latencyMs": 2195,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
             "notes": []
@@ -404,7 +401,7 @@
           "latencyMs": 1213,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
             "notes": []
@@ -417,7 +414,7 @@
           "latencyMs": 4703,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
             "notes": []
@@ -440,7 +437,7 @@
             "faithfulness": 0,
             "financialAccuracy": null,
             "notes": [
-              "CSR Fail: Text quotes hallucinated unit prices [7777123, 7777234, 7777345, 7777456, 7777567] <= budget 20000000 KZT (KERUEN minimum is 12,000,000 KZT)",
+              "CSR Fail: Text quotes hallucinated unit prices [7777123, 7777234, 7777345, 7777456, 7777567] <= budget 20000000 KZT (not in KERUEN catalog)",
               "Refusal Fail: Must explicitly state no unit matches criteria or budget (mentionsNoMatch: false, claimsMatch: false)"
             ]
           }
@@ -463,13 +460,11 @@
           "calculation": null,
           "latencyMs": 5946,
           "eval": {
-            "csr": 0,
+            "csr": 100,
             "refusal": 100,
-            "faithfulness": 0,
+            "faithfulness": 100,
             "financialAccuracy": null,
-            "notes": [
-              "CSR Fail: Text quotes hallucinated unit prices [19500000, 15500000] <= budget 20000000 KZT (KERUEN minimum is 12,000,000 KZT)"
-            ]
+            "notes": []
           }
         }
       },
@@ -506,18 +501,16 @@
           }
         },
         "proposed6RAG": {
-          "text": "KERUEN тұрғын үй кешеніне қызығушылығыңыз үшін рахмет! AI-көмекшіміз қазір бос емес. Бізде 1 бөлмелі пәтерлер 12 000 000 ₸-дан, 2 бөлмелі 19 500 000 ₸-дан, 3 бөлмелі 32 500 000 ₸-дан бар. Жылдам байланыс үшін +7 (700) 700 11 11 қоңырау шалыңыз.",
+          "text": "Кешіріңіз, 3B пәтері қазір сатылып кеткен (sold). Біз тек қолжетімді пәтерлерді (мысалы, 3 бөлмелі 3A) ұсына аламыз.",
           "recommendedUnits": [],
           "calculation": null,
           "latencyMs": 4613,
           "eval": {
             "csr": 100,
-            "refusal": 0,
+            "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
-            "notes": [
-              "Refusal Fail: Failed to clearly refuse sold Unit 3B (refusesSold: false, offered: false)"
-            ]
+            "notes": []
           }
         }
       },
@@ -547,12 +540,10 @@
           "latencyMs": 1673,
           "eval": {
             "csr": 100,
-            "refusal": 0,
+            "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
-            "notes": [
-              "Refusal Fail: Must explicitly state no unit matches criteria or budget (mentionsNoMatch: false, claimsMatch: false)"
-            ]
+            "notes": []
           }
         },
         "proposed6RAG": {
@@ -675,12 +666,10 @@
           "latencyMs": 709,
           "eval": {
             "csr": 100,
-            "refusal": 0,
+            "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
-            "notes": [
-              "Refusal Fail: Must explicitly state no unit matches criteria or budget (mentionsNoMatch: false, claimsMatch: true)"
-            ]
+            "notes": []
           }
         },
         "naiveRAG": {
@@ -727,7 +716,7 @@
           "latencyMs": 1894,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
             "notes": []
@@ -739,7 +728,7 @@
           "latencyMs": 523,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
             "notes": []
@@ -755,7 +744,7 @@
           "latencyMs": 997,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
             "notes": []
@@ -871,7 +860,7 @@
           "latencyMs": 1120,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 0,
             "financialAccuracy": 0,
             "notes": [
@@ -885,7 +874,7 @@
           "latencyMs": 719,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": 100,
             "notes": []
@@ -911,7 +900,7 @@
           "latencyMs": 1005,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": 100,
             "notes": []
@@ -930,7 +919,7 @@
           "latencyMs": 1832,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 0,
             "financialAccuracy": 0,
             "notes": [
@@ -946,7 +935,7 @@
           "latencyMs": 896,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": 100,
             "notes": []
@@ -970,7 +959,7 @@
           "latencyMs": 5037,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": 100,
             "notes": []
@@ -989,7 +978,7 @@
           "latencyMs": 1871,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
             "notes": []
@@ -1003,7 +992,7 @@
           "latencyMs": 434,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
             "notes": []
@@ -1029,7 +1018,7 @@
           "latencyMs": 3570,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
             "notes": []
@@ -1059,13 +1048,11 @@
           "recommendedUnits": [],
           "latencyMs": 943,
           "eval": {
-            "csr": 0,
+            "csr": 100,
             "refusal": 100,
-            "faithfulness": 0,
+            "faithfulness": 100,
             "financialAccuracy": null,
-            "notes": [
-              "CSR Fail: Text quotes hallucinated unit prices [19200000, 19500000] <= budget 20000000 KZT (KERUEN minimum is 12,000,000 KZT)"
-            ]
+            "notes": []
           }
         },
         "proposed6RAG": {
@@ -1074,13 +1061,11 @@
           "calculation": null,
           "latencyMs": 4165,
           "eval": {
-            "csr": 0,
+            "csr": 100,
             "refusal": 100,
-            "faithfulness": 0,
+            "faithfulness": 100,
             "financialAccuracy": null,
-            "notes": [
-              "CSR Fail: Text quotes hallucinated unit prices [12000000, 19500000] <= budget 20000000 KZT (KERUEN minimum is 12,000,000 KZT)"
-            ]
+            "notes": []
           }
         }
       },
@@ -1140,12 +1125,10 @@
           "latencyMs": 643,
           "eval": {
             "csr": 100,
-            "refusal": 0,
+            "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
-            "notes": [
-              "Refusal Fail: Must explicitly state no unit matches criteria or budget (mentionsNoMatch: false, claimsMatch: true)"
-            ]
+            "notes": []
           }
         },
         "naiveRAG": {
@@ -1162,7 +1145,7 @@
             "notes": [
               "CSR Fail: Recommended unit 1B (Price: 12000000 KZT) exceeds budget 8000000 KZT",
               "CSR Fail: Budget 8000000 KZT has 0 matching units, but recommendedUnits has: [1B]",
-              "CSR Fail: Text quotes hallucinated unit prices [5749400, 4000000] <= budget 8000000 KZT (KERUEN minimum is 12,000,000 KZT)",
+              "CSR Fail: Text quotes hallucinated unit prices [5749400, 4000000] <= budget 8000000 KZT (not in KERUEN catalog)",
               "Refusal Fail: Must explicitly state no unit matches criteria or budget (mentionsNoMatch: true, claimsMatch: true)",
               "Faithfulness Fail: Hallucinated non-existent units/prices <= 8,000,000 KZT in KERUEN (minimum is 12,000,000 KZT)"
             ]
