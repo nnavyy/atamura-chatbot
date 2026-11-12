@@ -92,7 +92,9 @@ export function extractEntities(message: string): Record<string, unknown> {
 
   // 1. Budget extraction (supports EN, RU, KZ, ID)
   // Multipliers: млн, миллион, million, juta, jt, miliar
-  const budgetMatch = message.match(/(\d[\d\s,._]*)\s*(тг|тенге|₸|млн|миллион|million|tenge|kzt|juta|jt|miliar)\b/i);
+  const budgetMatch = message.match(
+    /(\d[\d\s,._]*)\s*(тг|тенге|₸|млн(?:\s*(?:тенге|тг))?|миллион[а-я]*|million|tenge|kzt|juta|jt|miliar)(?=[^\p{L}\p{N}]|$)/iu
+  );
   if (budgetMatch) {
     let amount = parseLocalizedNumber(budgetMatch[1]);
     const unit = budgetMatch[2].toLowerCase();
@@ -108,7 +110,9 @@ export function extractEntities(message: string): Record<string, unknown> {
 
   if (!entities.budget) {
     // Standalone multiplier: e.g. "15 juta" or "15 млн" without currency suffix
-    const numMatch = message.match(/(\d+[\d,.]*)\s*(млн|миллион|million|juta|jt|miliar)\b/i);
+    const numMatch = message.match(
+      /(\d+[\d,.]*)\s*(млн|миллион[а-я]*|million|juta|jt|miliar)(?=[^\p{L}\p{N}]|$)/iu
+    );
     if (numMatch) {
       let val = parseLocalizedNumber(numMatch[1]);
       const mult = numMatch[2].toLowerCase();
@@ -131,7 +135,22 @@ export function extractEntities(message: string): Record<string, unknown> {
 
   // 2. Rooms extraction (supports EN, RU, KZ, ID)
   const roomMatch = message.match(/(\d)\s*(-?\s*)(room|комнат|бөлме|br\b|bedroom|kamar)/i);
-  if (roomMatch) entities.rooms = parseInt(roomMatch[1]);
+  if (roomMatch) {
+    entities.rooms = parseInt(roomMatch[1]);
+  } else if (/one[\s-]bedroom|однокомнатн|1-комнатн|бір\s*бөлме/i.test(message)) {
+    entities.rooms = 1;
+  } else if (/two[\s-]bedroom|двухкомнатн|2-комнатн|екі\s*бөлме/i.test(message)) {
+    entities.rooms = 2;
+  } else if (/three[\s-]bedroom|трехкомнатн|трёхкомнатн|3-комнатн|үш\s*бөлме/i.test(message)) {
+    entities.rooms = 3;
+  }
+
+  // 2b. View preference extraction (Courtyard vs Mountain)
+  if (/mountain|гор[а-я]*|тау/i.test(message)) {
+    entities.view = 'Mountain';
+  } else if (/court(?:yard)?|двор[а-я]*|аула/i.test(message)) {
+    entities.view = 'Courtyard';
+  }
 
   // 3. Purpose
   if (/invest|инвестиц/i.test(message)) entities.purpose = 'investment';
@@ -173,7 +192,7 @@ export function extractEntities(message: string): Record<string, unknown> {
     if (val >= 0 && val <= 50) entities.custom_rate = val;
   }
 
-  const tenorMatch = message.match(/(\d{1,3})\s*(?:bulan|months?|месяц(?:а|ев)?|ай)\b/i);
+  const tenorMatch = message.match(/(\d{1,3})\s*(?:bulan|months?|месяц(?:а|ев)?|ай)(?:[\s,.;:]|$)/i);
   if (tenorMatch) {
     const months = parseInt(tenorMatch[1]);
     if (months >= 1 && months <= 360) entities.custom_tenor = months;
