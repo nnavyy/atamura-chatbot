@@ -1,6 +1,13 @@
 {
   "timestamp": "2026-11-12T15:43:54.272Z",
   "benchmarkPack": "pilot_12_cases",
+  "provenance": {
+    "rawArchiveFile": "benchmark/archive/pilot_2026-11-12_original_raw.json",
+    "rawArchiveSha256": "48cd414f28f7c5110d01af7fa21aab80bdd2a06f3327a46b1207a9448409c9d4",
+    "evaluatorVersion": "v2_audited_strict_denominators",
+    "evaluatorTestsPassed": "28/28 (100%)",
+    "evaluationDate": "2026-11-12T17:36:59.348Z"
+  },
   "environment": {
     "lpuEngine": "Groq LPUs (Language Processing Units)",
     "modelsTested": [
@@ -14,25 +21,39 @@
       "model": "openai/gpt-oss-120b",
       "modelLabel": "OpenAI GPT-OSS-120B",
       "totalCases": 12,
+      "applicableRefusalCases": 8,
+      "applicableFinancialCases": 2,
       "zeroShot": {
         "csr": 75,
+        "csrCount": "9/12",
         "faithfulness": 50,
+        "faithfulnessCount": "6/12",
         "refusal": 0,
+        "refusalCount": "0/8",
         "financialAccuracy": 0,
+        "financialCount": "0/2",
         "latencyMs": 1836.8
       },
       "naiveRAG": {
         "csr": 100,
+        "csrCount": "12/12",
         "faithfulness": 100,
+        "faithfulnessCount": "12/12",
         "refusal": 100,
+        "refusalCount": "8/8",
         "financialAccuracy": 100,
+        "financialCount": "2/2",
         "latencyMs": 1169.9
       },
       "proposed6RAG": {
         "csr": 100,
-        "faithfulness": 100,
-        "refusal": 100,
-        "financialAccuracy": 100,
+        "csrCount": "12/12",
+        "faithfulness": 91.7,
+        "faithfulnessCount": "11/12",
+        "refusal": 87.5,
+        "refusalCount": "7/8",
+        "financialAccuracy": 50,
+        "financialCount": "1/2",
         "latencyMs": 3572
       }
     },
@@ -40,25 +61,39 @@
       "model": "qwen/qwen3.8-27b",
       "modelLabel": "Qwen 3.8 27B",
       "totalCases": 12,
+      "applicableRefusalCases": 8,
+      "applicableFinancialCases": 2,
       "zeroShot": {
         "csr": 91.7,
+        "csrCount": "11/12",
         "faithfulness": 66.7,
+        "faithfulnessCount": "8/12",
         "refusal": 62.5,
+        "refusalCount": "5/8",
         "financialAccuracy": 0,
+        "financialCount": "0/2",
         "latencyMs": 1251.1
       },
       "naiveRAG": {
         "csr": 83.3,
+        "csrCount": "10/12",
         "faithfulness": 91.7,
+        "faithfulnessCount": "11/12",
         "refusal": 75,
+        "refusalCount": "6/8",
         "financialAccuracy": 100,
+        "financialCount": "2/2",
         "latencyMs": 706.3
       },
       "proposed6RAG": {
         "csr": 100,
+        "csrCount": "12/12",
         "faithfulness": 100,
+        "faithfulnessCount": "12/12",
         "refusal": 100,
+        "refusalCount": "8/8",
         "financialAccuracy": 100,
+        "financialCount": "2/2",
         "latencyMs": 3240.4
       }
     }
@@ -349,7 +384,7 @@
           }
         },
         "proposed6RAG": {
-          "text": "2B пәтері үшін 40% жарна, 24 ай, 0% пайыз бойынша төлем кестесі: бастапқы жарна = 7 800 000 ₸, ай сайынғы төлем = 487 500 ₸, жалпы сома = 19 500 000 ₸.",
+          "text": "Сәлеметсіз бе! Мен Atamura Group-тың AI кәсіби кеңесшісімін. Сіздің сұрағыңызға жауап беру үшін маңызды ақпаратты түзетуім қажет.\n\nKERUEN кешеніндегі 2B пәтері үшін (бағасы: 19 500 000 ₸) стандартты несиелеу шарттары мынадай:\n1. **Жеке бөліп төлеу (Developer Installment):** 0% пайызбен, бірақ мерзімі **36 айға дейін** (24 ай емес). Жарна (Down Payment) — 40% (7 800 000 ₸). Айлық төлем — 325 000 ₸.\n2. **Банк несие (Mortgage):** Пайыз мөлшерлемесі шамамен 16-18% (17% деп есептелгенде), мерзімі 20 жылға дейін. Жарна — 40% (7 800 000 ₸). Айлық аннуитеттік төлем — 171 616 ₸.\n\nСіз сұраған \"24 ай, 0% пайыз\" деген сценарий қазіргі уақытта қолжетімді емес, себебі 0% пайызбен бөліп төлеу тек 36 айға дейін ұсынылады. Егер сіз 24 айда төлеп бітіргіңіз келсе, бұл банк несие арқылы ғана мүмкін, бірақ онда пайыз мөлшерлемесі қолданылады.\n\nНақтырақ ақпарат алу үшін немесе келіссөз жүргізу үшін біздің менеджерлермен байланыса аласыз: +7 (700) 700 11 11.",
           "recommendedUnits": [
             "2B"
           ],
@@ -359,9 +394,9 @@
             "price": 19500000,
             "dp": 7800000,
             "dpPercent": 40,
-            "monthly": 487500,
+            "monthly": 325000,
             "total": 19500000,
-            "tenor": 24,
+            "tenor": 36,
             "interestRate": 0,
             "savings": 0
           },
@@ -369,9 +404,11 @@
           "eval": {
             "csr": 100,
             "refusal": null,
-            "faithfulness": 100,
-            "financialAccuracy": 100,
-            "notes": []
+            "faithfulness": 0,
+            "financialAccuracy": 0,
+            "notes": [
+              "Faithfulness Fail: Financial numbers did not match ground truth (DP exp: 7800000, found: true; Monthly exp: 487500, found: false)"
+            ]
           }
         }
       },
@@ -501,16 +538,18 @@
           }
         },
         "proposed6RAG": {
-          "text": "Кешіріңіз, 3B пәтері қазір сатылып кеткен (sold). Біз тек қолжетімді пәтерлерді (мысалы, 3 бөлмелі 3A) ұсына аламыз.",
+          "text": "KERUEN тұрғын үй кешеніне қызығушылығыңыз үшін рахмет! AI-көмекшіміз қазір бос емес. Бізде 1 бөлмелі пәтерлер 12 000 000 ₸-дан, 2 бөлмелі 19 500 000 ₸-дан, 3 бөлмелі 32 500 000 ₸-дан бар. Жылдам байланыс үшін +7 (700) 700 11 11 қоңырау шалыңыз.",
           "recommendedUnits": [],
           "calculation": null,
           "latencyMs": 4613,
           "eval": {
             "csr": 100,
-            "refusal": 100,
+            "refusal": 0,
             "faithfulness": 100,
             "financialAccuracy": null,
-            "notes": []
+            "notes": [
+              "Refusal Fail: Failed to clearly refuse sold Unit 3B (refusesSold: false, offered: false)"
+            ]
           }
         }
       },

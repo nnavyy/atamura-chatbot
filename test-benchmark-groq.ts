@@ -29,6 +29,8 @@ if (!GROQ_API_KEY) {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+import crypto from 'crypto';
+
 interface GroqResponse {
   text: string;
   rawJson?: any;
@@ -36,13 +38,16 @@ interface GroqResponse {
   calculation?: any;
   latencyMs: number;
   statusCode: number;
+  modelUsed: string;
+  isFallback: boolean;
+  timestamp: string;
 }
 
 async function callGroqAPI(
   model: string,
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
   jsonMode: boolean = false
-): Promise<{ text: string; statusCode: number; latencyMs: number }> {
+): Promise<{ text: string; statusCode: number; latencyMs: number; modelUsed: string; isFallback: boolean }> {
   const maxRetries = 6;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -88,27 +93,28 @@ async function callGroqAPI(
           continue;
         }
 
-        return { text: `Error ${res.status}: ${errorText}`, statusCode: res.status, latencyMs: reqLatency };
+        return { text: `Error ${res.status}: ${errorText}`, statusCode: res.status, latencyMs: reqLatency, modelUsed: model, isFallback: false };
       }
 
       const data = await res.json();
       const content = data.choices?.[0]?.message?.content || '';
-      return { text: content, statusCode: 200, latencyMs: reqLatency };
+      return { text: content, statusCode: 200, latencyMs: reqLatency, modelUsed: model, isFallback: false };
     } catch (err: any) {
       console.warn(`[Groq Network Error] ${model} attempt ${attempt + 1}: ${err?.message}`);
       if (attempt < maxRetries - 1) {
         await sleep(3000);
       } else {
-        return { text: `Network error: ${err?.message}`, statusCode: 0, latencyMs: 0 };
+        return { text: `Network error: ${err?.message}`, statusCode: 0, latencyMs: 0, modelUsed: 'error', isFallback: true };
       }
     }
   }
 
-  return { text: 'All retries exhausted', statusCode: 0, latencyMs: 0 };
+  return { text: 'All retries exhausted', statusCode: 0, latencyMs: 0, modelUsed: 'error', isFallback: true };
 }
 
 // 1. Zero-Shot
 async function runZeroShot(model: string, query: string): Promise<GroqResponse> {
+  const timestamp = new Date().toISOString();
   const messages = [
     {
       role: 'system' as const,
@@ -124,11 +130,15 @@ async function runZeroShot(model: string, query: string): Promise<GroqResponse> 
     recommendedUnits: [],
     latencyMs: res.latencyMs,
     statusCode: res.statusCode,
+    modelUsed: res.modelUsed,
+    isFallback: res.isFallback,
+    timestamp,
   };
 }
 
 // 2. Naive RAG (Prompt Context Dump)
 async function runNaiveRAG(model: string, allUnits: Unit[], query: string): Promise<GroqResponse> {
+  const timestamp = new Date().toISOString();
   const rawContext = allUnits
     .map(
       (u) =>
@@ -152,11 +162,15 @@ async function runNaiveRAG(model: string, allUnits: Unit[], query: string): Prom
     recommendedUnits: activeCodes,
     latencyMs: res.latencyMs,
     statusCode: res.statusCode,
+    modelUsed: res.modelUsed,
+    isFallback: res.isFallback,
+    timestamp,
   };
 }
 
 // 3. Proposed 6-Pipeline Hybrid RAG (Powered by src/lib/chatEngine.ts)
 async function runProposed6RAG(model: string, allUnits: Unit[], query: string): Promise<GroqResponse> {
+  const timestamp = new Date().toISOString();
   const result = await processPropertyQuery({
     query,
     allUnits: allUnits as any,
@@ -168,7 +182,10 @@ async function runProposed6RAG(model: string, allUnits: Unit[], query: string): 
     recommendedUnits: result.recommendedUnits,
     calculation: result.calculation,
     latencyMs: result.latencyMs,
-    statusCode: 200,
+    statusCode: result.modelUsed === 'fallback' ? 503 : 200,
+    modelUsed: result.modelUsed,
+    isFallback: result.modelUsed === 'fallback',
+    timestamp,
   };
 }
 
@@ -223,12 +240,20 @@ async function runBenchmarkForModel(
         text: zeroShot.text,
         recommendedUnits: zeroShot.recommendedUnits,
         latencyMs: zeroShot.latencyMs,
+        statusCode: zeroShot.statusCode,
+        modelUsed: zeroShot.modelUsed,
+        isFallback: zeroShot.isFallback,
+        timestamp: zeroShot.timestamp,
         eval: zeroEval,
       },
       naiveRAG: {
         text: naiveRAG.text,
         recommendedUnits: naiveRAG.recommendedUnits,
         latencyMs: naiveRAG.latencyMs,
+        statusCode: naiveRAG.statusCode,
+        modelUsed: naiveRAG.modelUsed,
+        isFallback: naiveRAG.isFallback,
+        timestamp: naiveRAG.timestamp,
         eval: naiveEval,
       },
       proposed6RAG: {
@@ -236,6 +261,10 @@ async function runBenchmarkForModel(
         recommendedUnits: proposed.recommendedUnits,
         calculation: proposed.calculation,
         latencyMs: proposed.latencyMs,
+        statusCode: proposed.statusCode,
+        modelUsed: proposed.modelUsed,
+        isFallback: proposed.isFallback,
+        timestamp: proposed.timestamp,
         eval: proposedEval,
       },
     });
@@ -243,61 +272,72 @@ async function runBenchmarkForModel(
     console.log('');
   }
 
-  const avg = (nums: number[]) => +(nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1);
-  const avgNullable = (nums: (number | null)[]): number | string => {
-    const valid = nums.filter((n): n is number => n !== null);
-    if (valid.length === 0) return 'N/A';
-    return +(valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1);
+  const calcStats = (runs: { eval: EvalScore; latencyMs: number }[]) => {
+    const csrPass = runs.filter((r) => r.eval.csr === 100).length;
+    const csrTotal = runs.length;
+    const csrPct = +( (csrPass / csrTotal) * 100 ).toFixed(1);
+
+    const faithPass = runs.filter((r) => r.eval.faithfulness === 100).length;
+    const faithTotal = runs.length;
+    const faithPct = +( (faithPass / faithTotal) * 100 ).toFixed(1);
+
+    const refusalRuns = runs.filter((r) => r.eval.refusal !== null);
+    const refusalPass = refusalRuns.filter((r) => r.eval.refusal === 100).length;
+    const refusalTotal = refusalRuns.length;
+    const refusalPct = refusalTotal > 0 ? +( (refusalPass / refusalTotal) * 100 ).toFixed(1) : 'N/A';
+
+    const finRuns = runs.filter((r) => r.eval.financialAccuracy !== null);
+    const finPass = finRuns.filter((r) => r.eval.financialAccuracy === 100).length;
+    const finTotal = finRuns.length;
+    const finPct = finTotal > 0 ? +( (finPass / finTotal) * 100 ).toFixed(1) : 'N/A';
+
+    const avgLatency = +(runs.reduce((a, b) => a + b.latencyMs, 0) / runs.length).toFixed(1);
+
+    return {
+      csr: csrPct,
+      csrCount: `${csrPass}/${csrTotal}`,
+      faithfulness: faithPct,
+      faithfulnessCount: `${faithPass}/${faithTotal}`,
+      refusal: refusalPct,
+      refusalCount: `${refusalPass}/${refusalTotal}`,
+      financialAccuracy: finPct,
+      financialCount: `${finPass}/${finTotal}`,
+      latencyMs: avgLatency,
+    };
   };
 
   const summary = {
     model: modelName,
     modelLabel,
     totalCases: pilotCases.length,
-    zeroShot: {
-      csr: avg(results.map((r) => r.zeroShot.eval.csr)),
-      faithfulness: avg(results.map((r) => r.zeroShot.eval.faithfulness)),
-      refusal: avgNullable(results.map((r) => r.zeroShot.eval.refusal)),
-      financialAccuracy: avgNullable(results.map((r) => r.zeroShot.eval.financialAccuracy)),
-      latencyMs: avg(results.map((r) => r.zeroShot.latencyMs)),
-    },
-    naiveRAG: {
-      csr: avg(results.map((r) => r.naiveRAG.eval.csr)),
-      faithfulness: avg(results.map((r) => r.naiveRAG.eval.faithfulness)),
-      refusal: avgNullable(results.map((r) => r.naiveRAG.eval.refusal)),
-      financialAccuracy: avgNullable(results.map((r) => r.naiveRAG.eval.financialAccuracy)),
-      latencyMs: avg(results.map((r) => r.naiveRAG.latencyMs)),
-    },
-    proposed6RAG: {
-      csr: avg(results.map((r) => r.proposed6RAG.eval.csr)),
-      faithfulness: avg(results.map((r) => r.proposed6RAG.eval.faithfulness)),
-      refusal: avgNullable(results.map((r) => r.proposed6RAG.eval.refusal)),
-      financialAccuracy: avgNullable(results.map((r) => r.proposed6RAG.eval.financialAccuracy)),
-      latencyMs: avg(results.map((r) => r.proposed6RAG.latencyMs)),
-    },
+    applicableRefusalCases: results.filter((r) => r.proposed6RAG.eval.refusal !== null).length,
+    applicableFinancialCases: results.filter((r) => r.proposed6RAG.eval.financialAccuracy !== null).length,
+    zeroShot: calcStats(results.map((r) => ({ eval: r.zeroShot.eval, latencyMs: r.zeroShot.latencyMs }))),
+    naiveRAG: calcStats(results.map((r) => ({ eval: r.naiveRAG.eval, latencyMs: r.naiveRAG.latencyMs }))),
+    proposed6RAG: calcStats(results.map((r) => ({ eval: r.proposed6RAG.eval, latencyMs: r.proposed6RAG.latencyMs }))),
   };
 
   console.log(`\n>>> SUMMARY RESULTS FOR ${modelLabel} (${modelName}) <<<`);
   console.table({
     [`Zero-Shot (${modelLabel})`]: {
-      'Constraint Sat. (CSR)': `${summary.zeroShot.csr}%`,
-      'Faithfulness (Grounding)': `${summary.zeroShot.faithfulness}%`,
-      'Refusal Acc. (Anti-Halusinasi)': `${summary.zeroShot.refusal}%`,
-      'Financial Calc Accuracy': `${summary.zeroShot.financialAccuracy}%`,
+      'CSR': `${summary.zeroShot.csr}% (${summary.zeroShot.csrCount})`,
+      'Faithfulness': `${summary.zeroShot.faithfulness}% (${summary.zeroShot.faithfulnessCount})`,
+      'Refusal Acc.': `${summary.zeroShot.refusal}% (${summary.zeroShot.refusalCount})`,
+      'Financial Acc.': `${summary.zeroShot.financialAccuracy}% (${summary.zeroShot.financialCount})`,
       'Avg Latency': `${summary.zeroShot.latencyMs} ms`,
     },
     [`Naive RAG (${modelLabel})`]: {
-      'Constraint Sat. (CSR)': `${summary.naiveRAG.csr}%`,
-      'Faithfulness (Grounding)': `${summary.naiveRAG.faithfulness}%`,
-      'Refusal Acc. (Anti-Halusinasi)': `${summary.naiveRAG.refusal}%`,
-      'Financial Calc Accuracy': `${summary.naiveRAG.financialAccuracy}%`,
+      'CSR': `${summary.naiveRAG.csr}% (${summary.naiveRAG.csrCount})`,
+      'Faithfulness': `${summary.naiveRAG.faithfulness}% (${summary.naiveRAG.faithfulnessCount})`,
+      'Refusal Acc.': `${summary.naiveRAG.refusal}% (${summary.naiveRAG.refusalCount})`,
+      'Financial Acc.': `${summary.naiveRAG.financialAccuracy}% (${summary.naiveRAG.financialCount})`,
       'Avg Latency': `${summary.naiveRAG.latencyMs} ms`,
     },
     [`Proposed 6-Pipeline RAG (${modelLabel})`]: {
-      'Constraint Sat. (CSR)': `${summary.proposed6RAG.csr}%`,
-      'Faithfulness (Grounding)': `${summary.proposed6RAG.faithfulness}%`,
-      'Refusal Acc. (Anti-Halusinasi)': `${summary.proposed6RAG.refusal}%`,
-      'Financial Calc Accuracy': `${summary.proposed6RAG.financialAccuracy}%`,
+      'CSR': `${summary.proposed6RAG.csr}% (${summary.proposed6RAG.csrCount})`,
+      'Faithfulness': `${summary.proposed6RAG.faithfulness}% (${summary.proposed6RAG.faithfulnessCount})`,
+      'Refusal Acc.': `${summary.proposed6RAG.refusal}% (${summary.proposed6RAG.refusalCount})`,
+      'Financial Acc.': `${summary.proposed6RAG.financialAccuracy}% (${summary.proposed6RAG.financialCount})`,
       'Avg Latency': `${summary.proposed6RAG.latencyMs} ms`,
     },
   });
@@ -380,9 +420,17 @@ async function main() {
   };
 
   const outFilePath = path.join(__dirname, 'benchmark', 'benchmark_results_groq.json');
-  fs.writeFileSync(outFilePath, JSON.stringify(outputData, null, 2), 'utf8');
+  const liveRunPath = path.join(__dirname, 'benchmark', 'live_benchmark_run_2026-11-13.json');
+  const jsonContent = JSON.stringify(outputData, null, 2);
+  fs.writeFileSync(outFilePath, jsonContent, 'utf8');
+  fs.writeFileSync(liveRunPath, jsonContent, 'utf8');
+
+  const sha256 = crypto.createHash('sha256').update(jsonContent).digest('hex');
   console.log(`\n========================================================================`);
-  console.log(`Empirical benchmark results successfully saved to:\n${outFilePath}`);
+  console.log(`Empirical benchmark results successfully saved to:`);
+  console.log(`  1. ${outFilePath}`);
+  console.log(`  2. ${liveRunPath}`);
+  console.log(`SHA-256 Provenance Hash: ${sha256}`);
   console.log(`========================================================================\n`);
 
   await prisma.$disconnect();
