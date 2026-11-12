@@ -21,13 +21,15 @@ export interface LLMResponse {
   extractedEntities: Record<string, unknown>;
   language: 'en' | 'ru' | 'kz';
   options?: string[];
+  modelUsed?: 'openai/gpt-oss-120b' | 'qwen/qwen3.8-27b' | 'fallback' | string;
 }
 
 export interface LLMProvider {
   generateResponse(
     messages: ChatMessage[],
     systemPrompt: string,
-    unitContext: string
+    unitContext: string,
+    targetModel?: string
   ): Promise<LLMResponse>;
 }
 

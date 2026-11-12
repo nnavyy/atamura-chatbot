@@ -1,8 +1,8 @@
 import { ChatMessage, LLMResponse, LLMProvider } from './llm';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const PRIMARY_MODEL = 'openai/gpt-oss-120b';
-const FALLBACK_MODEL = 'qwen/qwen3.8-27b';
+export const PRIMARY_MODEL = 'openai/gpt-oss-120b';
+export const FALLBACK_MODEL = 'qwen/qwen3.8-27b';
 
 interface GroqChatCompletionResponse {
   choices?: Array<{
@@ -25,7 +25,8 @@ export class GroqProvider implements LLMProvider {
   async generateResponse(
     messages: ChatMessage[],
     systemPrompt: string,
-    unitContext: string
+    unitContext: string,
+    targetModel?: string
   ): Promise<LLMResponse> {
     const apiKey = this.getApiKey();
     const lastUserMessage =
@@ -46,12 +47,14 @@ export class GroqProvider implements LLMProvider {
       })),
     ];
 
-    // Multi-tier model routing: try primary model first, fallback to secondary model
-    const candidateModels = [PRIMARY_MODEL, FALLBACK_MODEL];
+    // Multi-tier model routing: try target/primary model first, fallback to secondary model
+    const candidateModels = targetModel
+      ? [targetModel, ...(targetModel === PRIMARY_MODEL ? [FALLBACK_MODEL] : [PRIMARY_MODEL])]
+      : [PRIMARY_MODEL, FALLBACK_MODEL];
 
     for (let mIdx = 0; mIdx < candidateModels.length; mIdx++) {
       const model = candidateModels[mIdx];
-      const maxRetries = 2;
+      const maxRetries = 5;
 
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
@@ -82,13 +85,23 @@ export class GroqProvider implements LLMProvider {
               errorText
             );
 
-            // Handle rate limit (429) or transient server errors (500, 502, 503, 504)
-            if (response.status === 429 || response.status >= 500) {
-              if (attempt < maxRetries - 1) {
-                const backoffMs = (attempt + 1) * 2000;
-                await new Promise((resolve) => setTimeout(resolve, backoffMs));
-                continue;
+            // Handle rate limit (429) with exact delay from Groq error message
+            if (response.status === 429) {
+              let waitMs = 5000;
+              const matchSec = errorText.match(/try again in ([0-9.]+)s/i);
+              if (matchSec) {
+                waitMs = Math.ceil(parseFloat(matchSec[1]) * 1000) + 1500;
               }
+              console.warn(`[GroqProvider 429] Waiting ${waitMs}ms before retry ${attempt + 1}/${maxRetries}...`);
+              await new Promise((resolve) => setTimeout(resolve, waitMs));
+              continue;
+            }
+
+            // Handle transient server errors (500, 502, 503, 504)
+            if (response.status >= 500) {
+              const waitMs = (attempt + 1) * 3000;
+              await new Promise((resolve) => setTimeout(resolve, waitMs));
+              continue;
             }
 
             // If primary model failed after retries, break to fallback model
@@ -104,7 +117,7 @@ export class GroqProvider implements LLMProvider {
             break;
           }
 
-          const parsed = this.parseResponse(rawContent, lastUserMessage);
+          const parsed = this.parseResponse(rawContent, lastUserMessage, model);
           return parsed;
         } catch (error: unknown) {
           const err = error as { name?: string; message?: string };
@@ -125,7 +138,7 @@ export class GroqProvider implements LLMProvider {
     return this.getFallbackResponse(lastUserMessage);
   }
 
-  private parseResponse(text: string, userMessage: string): LLMResponse {
+  private parseResponse(text: string, userMessage: string, model: string): LLMResponse {
     let rawObj: unknown = null;
 
     // 1. Try parsing directly as JSON
@@ -220,6 +233,7 @@ export class GroqProvider implements LLMProvider {
             : {},
         language,
         options,
+        modelUsed: model as 'openai/gpt-oss-120b' | 'qwen/qwen3.8-27b' | 'fallback',
       };
     }
 
@@ -228,10 +242,12 @@ export class GroqProvider implements LLMProvider {
     return {
       message: cleanText || text,
       recommendedUnits: [],
+      calculation: undefined,
       detectedIntent: 'general_faq',
       extractedEntities: {},
       language: defaultLang,
       options: [],
+      modelUsed: model as 'openai/gpt-oss-120b' | 'qwen/qwen3.8-27b' | 'fallback',
     };
   }
 
@@ -248,11 +264,13 @@ export class GroqProvider implements LLMProvider {
 
     return {
       message: fallbackMessages[lang],
-      recommendedUnits: ['1B', '2A', '3A'],
+      recommendedUnits: [],
+      calculation: undefined,
       detectedIntent: 'general_faq',
       extractedEntities: {},
       language: lang,
       options: ['Show me 1BR', 'I want to see 2BR', 'Tell me about installment'],
+      modelUsed: 'fallback',
     };
   }
 }
