@@ -1,17 +1,5 @@
-// Local type definition — avoids dependency on generated @prisma/client types
-interface Unit {
-  id: string;
-  code: string;
-  type: string;
-  rooms: number;
-  areaSqm: number;
-  priceMin: number;
-  status: string;
-  view?: string | null;
-  floor?: string | null;
-  features?: string | null;
-  floorPlan?: string | null;
-}
+import { Unit } from './catalogSnapshot';
+export type { Unit };
 
 /**
  * Builds the system prompt for Atamura AI Property Consultant
