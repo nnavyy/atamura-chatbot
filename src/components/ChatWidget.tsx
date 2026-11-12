@@ -29,6 +29,7 @@ interface Calculation {
 /** Lightweight markdown → HTML for chat bubbles */
 function renderMarkdown(text: string): string {
   return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;')
     // Bold: **text** or __text__
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/__(.+?)__/g, '<strong>$1</strong>')
@@ -138,19 +139,19 @@ export default function ChatWidget() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="animate-pulse-glow"
+          
           style={{
             position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
-            width: 64, height: 64, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #007484, #00a3b8)',
+            width: 54, height: 54, borderRadius: 5,
+            background: '#1e382c',
             border: 'none', cursor: 'pointer', display: 'flex',
             alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 8px 32px rgba(0,116,132,0.4)',
+            boxShadow: '0 5px 22px rgba(16,37,26,0.18)',
             transition: 'transform 0.3s ease',
           }}
           onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
           onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-          aria-label="Open AI Chat"
+          aria-label="Open property consultation chat"
           id="chat-bubble-btn"
         >
           <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
@@ -168,32 +169,32 @@ export default function ChatWidget() {
           position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
           width: 420, maxWidth: 'calc(100vw - 32px)',
           height: 600, maxHeight: 'calc(100vh - 48px)',
-          borderRadius: 20, overflow: 'hidden',
+          borderRadius: 7, overflow: 'hidden',
           display: 'flex', flexDirection: 'column',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+          boxShadow: '0 18px 60px rgba(11,34,21,0.2)',
           animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-          background: '#0f1419',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: '#fbfcf8',
+          border: '1px solid #d9e2d9',
         }} id="chat-window">
           {/* Header */}
           <div style={{
-            background: 'linear-gradient(135deg, #223C50, #1a3a4a)',
+            background: '#f7f8f3',
             padding: '16px 20px', display: 'flex', alignItems: 'center',
-            justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)',
+            justifyContent: 'space-between', borderBottom: '1px solid #e2e7df',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{
-                width: 40, height: 40, borderRadius: '50%',
-                background: 'linear-gradient(135deg, #007484, #00a3b8)',
+                width: 40, height: 40, borderRadius: 5,
+                background: '#1e382c',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 18,
-              }}>🏠</div>
+                fontSize: 18, color: '#ffffff', fontWeight: 800,
+              }}>A</div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: '#f0f4f8' }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: '#1f3529' }}>
                   {t('chat.title', lang)}
                 </div>
-                <div style={{ fontSize: 12, color: '#00c853', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#00c853', display: 'inline-block' }} />
+                <div style={{ fontSize: 12, color: '#47755b', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: 5, background: '#47755b', display: 'inline-block' }} />
                   {onlineText[lang]}
                 </div>
               </div>
@@ -202,8 +203,8 @@ export default function ChatWidget() {
               <button
                 onClick={cycleLang}
                 style={{
-                  background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
-                  color: '#00a3b8', borderRadius: 8, padding: '4px 10px',
+                  background: '#eef2eb', border: '1px solid #d2dcd1',
+                  color: '#315844', borderRadius: 4, padding: '4px 10px',
                   fontSize: 12, fontWeight: 700, cursor: 'pointer',
                   transition: 'all 0.2s',
                 }}
@@ -212,7 +213,7 @@ export default function ChatWidget() {
               <button
                 onClick={() => setIsOpen(false)}
                 style={{
-                  background: 'none', border: 'none', color: '#8899a6',
+                  background: 'none', border: 'none', color: '#425a49',
                   cursor: 'pointer', fontSize: 22, lineHeight: 1, padding: 4,
                 }}
                 id="chat-close-btn"
@@ -234,11 +235,9 @@ export default function ChatWidget() {
                 <div style={{
                   maxWidth: '85%', padding: '12px 16px',
                   borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                  background: msg.role === 'user'
-                    ? 'linear-gradient(135deg, #007484, #005f6b)'
-                    : '#1a2332',
-                  color: '#f0f4f8', fontSize: 14, lineHeight: 1.6,
-                  border: msg.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                  background: msg.role === 'user' ? '#244433' : '#eef2ec',
+                  color: msg.role === 'user' ? '#ffffff' : '#20372c', fontSize: 14, lineHeight: 1.6,
+                  border: msg.role === 'user' ? 'none' : '1px solid #e0e7df',
                 }}>
                   {msg.role === 'user' ? msg.content : (
                     <div dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
@@ -266,11 +265,11 @@ export default function ChatWidget() {
                         key={idx}
                         onClick={() => sendMessage(opt)}
                         style={{
-                          background: 'rgba(0,116,132,0.15)',
-                          border: '1px solid rgba(0,116,132,0.3)',
-                          color: '#00a3b8',
+                          background: '#f5f7f2',
+                          border: '1px solid #cdd9cd',
+                          color: '#315844',
                           padding: '6px 12px',
-                          borderRadius: 16,
+                          borderRadius: 5,
                           fontSize: 13,
                           cursor: 'pointer',
                           transition: 'all 0.2s',
@@ -289,12 +288,12 @@ export default function ChatWidget() {
             {loading && (
               <div style={{
                 display: 'flex', gap: 6, padding: '12px 16px',
-                background: '#1a2332', borderRadius: '16px 16px 16px 4px',
-                alignSelf: 'flex-start', border: '1px solid rgba(255,255,255,0.06)',
+                background: '#eef2ec', borderRadius: '16px 16px 16px 4px',
+                alignSelf: 'flex-start', border: '1px solid #e0e7df',
               }}>
                 {[0, 1, 2].map((i) => (
                   <span key={i} style={{
-                    width: 8, height: 8, borderRadius: '50%', background: '#007484',
+                    width: 8, height: 8, borderRadius: 5, background: '#456955',
                     animation: `typing 1.4s infinite ${i * 0.2}s`,
                   }} />
                 ))}
@@ -315,8 +314,8 @@ export default function ChatWidget() {
 
           {/* Input */}
           <div style={{
-            padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.06)',
-            display: 'flex', gap: 8, background: '#0f1419',
+            padding: '12px 16px', borderTop: '1px solid #e0e7df',
+            display: 'flex', gap: 8, background: '#fbfcf8',
           }}>
             <input
               ref={inputRef}
@@ -325,8 +324,8 @@ export default function ChatWidget() {
               onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
               placeholder={t('chat.placeholder', lang)}
               style={{
-                flex: 1, background: '#1a2332', border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 12, padding: '12px 16px', color: '#f0f4f8',
+                flex: 1, background: '#eef2ec', border: '1px solid #d5ded3',
+                borderRadius: 5, padding: '12px 16px', color: '#1f3529',
                 fontSize: 14, outline: 'none', transition: 'border-color 0.2s',
               }}
               onFocus={(e) => (e.target.style.borderColor = '#007484')}
@@ -337,9 +336,8 @@ export default function ChatWidget() {
               onClick={() => sendMessage()}
               disabled={loading || !input.trim()}
               style={{
-                background: loading || !input.trim()
-                  ? '#243447' : 'linear-gradient(135deg, #007484, #00a3b8)',
-                border: 'none', borderRadius: 12, width: 44, height: 44,
+                background: loading || !input.trim() ? '#b3bfb3' : '#244433',
+                border: 'none', borderRadius: 5, width: 44, height: 44,
                 cursor: loading || !input.trim() ? 'default' : 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'all 0.2s',

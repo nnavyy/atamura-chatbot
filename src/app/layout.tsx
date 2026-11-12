@@ -6,12 +6,12 @@ import ChatWidget from "@/components/ChatWidget";
 import { LanguageProvider } from "@/components/LanguageContext";
 
 export const metadata: Metadata = {
-  title: "Atamura Group — AI Property Consultant | KERUEN Residential Complex",
-  description: "Find your perfect apartment in KERUEN residential complex with our AI-powered property consultant. ECO-comfort living in the foothills of Almaty, Kazakhstan.",
+  title: "Atamura Group | KERUEN Residences, Almaty",
+  description: "Explore KERUEN apartments, floor plans and payment options in Tuzdybastau, Almaty. A considered residential community by Atamura Group.",
   keywords: "Atamura Group, KERUEN, apartment, Almaty, Kazakhstan, property, real estate, AI consultant",
   openGraph: {
-    title: "Atamura Group — AI Property Consultant",
-    description: "Find your perfect apartment in KERUEN residential complex with AI assistance.",
+    title: "Atamura Group | KERUEN Residences",
+    description: "Explore KERUEN apartments, layouts and payment options near Almaty.",
     siteName: "Atamura Group",
     type: "website",
   },
