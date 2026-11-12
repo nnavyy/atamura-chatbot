@@ -15,8 +15,8 @@
       "modelLabel": "OpenAI GPT-OSS-120B",
       "totalCases": 12,
       "zeroShot": {
-        "csr": 83.3,
-        "faithfulness": 58.3,
+        "csr": 75,
+        "faithfulness": 50,
         "refusal": 33.3,
         "financialAccuracy": 0,
         "latencyMs": 1836.8
@@ -30,7 +30,7 @@
       },
       "proposed6RAG": {
         "csr": 91.7,
-        "faithfulness": 91.7,
+        "faithfulness": 83.3,
         "refusal": 91.7,
         "financialAccuracy": 50,
         "latencyMs": 3572
@@ -48,15 +48,15 @@
         "latencyMs": 1251.1
       },
       "naiveRAG": {
-        "csr": 83.3,
-        "faithfulness": 91.7,
+        "csr": 75,
+        "faithfulness": 83.3,
         "refusal": 83.3,
         "financialAccuracy": 100,
         "latencyMs": 706.3
       },
       "proposed6RAG": {
-        "csr": 75,
-        "faithfulness": 100,
+        "csr": 91.7,
+        "faithfulness": 91.7,
         "refusal": 100,
         "financialAccuracy": 100,
         "latencyMs": 3240.4
@@ -76,11 +76,13 @@
           "recommendedUnits": [],
           "latencyMs": 2319,
           "eval": {
-            "csr": 100,
+            "csr": 0,
             "refusal": 0,
             "faithfulness": 0,
             "financialAccuracy": null,
             "notes": [
+              "CSR Fail: Text falsely claims an apartment is available within budget 8000000 KZT",
+              "CSR Fail: Text quotes hallucinated unit prices [7850000, 7950000, 7200000, 7600000] <= budget 8000000 KZT (KERUEN minimum is 12,000,000 KZT)",
               "Refusal Fail: Must explicitly state no unit matches criteria or budget (mentionsNoMatch: false, claimsMatch: true)",
               "Faithfulness Fail: Hallucinated non-existent units/prices <= 8,000,000 KZT in KERUEN (minimum is 12,000,000 KZT)"
             ]
@@ -104,13 +106,11 @@
           "calculation": null,
           "latencyMs": 1659,
           "eval": {
-            "csr": 0,
+            "csr": 100,
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
-            "notes": [
-              "CSR Fail: Unit 1B (Price: 12000000 KZT) offered as available in text, exceeding budget 8000000 KZT"
-            ]
+            "notes": []
           }
         }
       },
@@ -437,7 +437,7 @@
           "eval": {
             "csr": 0,
             "refusal": 0,
-            "faithfulness": 100,
+            "faithfulness": 0,
             "financialAccuracy": null,
             "notes": [
               "CSR Fail: Text quotes hallucinated unit prices [7777123, 7777234, 7777345, 7777456, 7777567] <= budget 20000000 KZT (KERUEN minimum is 12,000,000 KZT)",
@@ -463,11 +463,13 @@
           "calculation": null,
           "latencyMs": 5946,
           "eval": {
-            "csr": 100,
+            "csr": 0,
             "refusal": 100,
-            "faithfulness": 100,
+            "faithfulness": 0,
             "financialAccuracy": null,
-            "notes": []
+            "notes": [
+              "CSR Fail: Text quotes hallucinated unit prices [19500000, 15500000] <= budget 20000000 KZT (KERUEN minimum is 12,000,000 KZT)"
+            ]
           }
         }
       },
@@ -694,7 +696,6 @@
             "financialAccuracy": null,
             "notes": [
               "CSR Fail: Recommended unit 1B (Price: 12000000 KZT) exceeds budget 8000000 KZT",
-              "CSR Fail: Unit 1B (Price: 12000000 KZT) offered as available in text, exceeding budget 8000000 KZT",
               "CSR Fail: Budget 8000000 KZT has 0 matching units, but recommendedUnits has: [1B]",
               "Refusal Fail: Must explicitly state no unit matches criteria or budget (mentionsNoMatch: true, claimsMatch: true)"
             ]
@@ -706,13 +707,11 @@
           "calculation": null,
           "latencyMs": 3003,
           "eval": {
-            "csr": 0,
+            "csr": 100,
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
-            "notes": [
-              "CSR Fail: Unit 1B (Price: 12000000 KZT) offered as available in text, exceeding budget 8000000 KZT"
-            ]
+            "notes": []
           }
         }
       },
@@ -1060,11 +1059,13 @@
           "recommendedUnits": [],
           "latencyMs": 943,
           "eval": {
-            "csr": 100,
+            "csr": 0,
             "refusal": 100,
-            "faithfulness": 100,
+            "faithfulness": 0,
             "financialAccuracy": null,
-            "notes": []
+            "notes": [
+              "CSR Fail: Text quotes hallucinated unit prices [19200000, 19500000] <= budget 20000000 KZT (KERUEN minimum is 12,000,000 KZT)"
+            ]
           }
         },
         "proposed6RAG": {
@@ -1075,13 +1076,10 @@
           "eval": {
             "csr": 0,
             "refusal": 100,
-            "faithfulness": 100,
+            "faithfulness": 0,
             "financialAccuracy": null,
             "notes": [
-              "CSR Fail: Unit 2A (Price: 20300000 KZT) offered as available in text, exceeding budget 20000000 KZT",
-              "CSR Fail: Offered unit 1B when 0 candidates match all criteria",
-              "CSR Fail: Offered unit 2A when 0 candidates match all criteria",
-              "CSR Fail: Offered unit 2B when 0 candidates match all criteria"
+              "CSR Fail: Text quotes hallucinated unit prices [12000000, 19500000] <= budget 20000000 KZT (KERUEN minimum is 12,000,000 KZT)"
             ]
           }
         }
@@ -1163,8 +1161,8 @@
             "financialAccuracy": null,
             "notes": [
               "CSR Fail: Recommended unit 1B (Price: 12000000 KZT) exceeds budget 8000000 KZT",
-              "CSR Fail: Unit 1B (Price: 12000000 KZT) offered as available in text, exceeding budget 8000000 KZT",
               "CSR Fail: Budget 8000000 KZT has 0 matching units, but recommendedUnits has: [1B]",
+              "CSR Fail: Text quotes hallucinated unit prices [5749400, 4000000] <= budget 8000000 KZT (KERUEN minimum is 12,000,000 KZT)",
               "Refusal Fail: Must explicitly state no unit matches criteria or budget (mentionsNoMatch: true, claimsMatch: true)",
               "Faithfulness Fail: Hallucinated non-existent units/prices <= 8,000,000 KZT in KERUEN (minimum is 12,000,000 KZT)"
             ]
@@ -1176,13 +1174,11 @@
           "calculation": null,
           "latencyMs": 3601,
           "eval": {
-            "csr": 0,
+            "csr": 100,
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
-            "notes": [
-              "CSR Fail: Unit 1B (Price: 12000000 KZT) offered as available in text, exceeding budget 8000000 KZT"
-            ]
+            "notes": []
           }
         }
       },
