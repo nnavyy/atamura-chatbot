@@ -49,11 +49,21 @@ export default function UnitsPage() {
     mortgage: t('payment.mortgage', lang),
   };
   const info = {
-    en: { kicker: 'KERUEN / APARTMENTS', availability: 'Availability and prices are subject to confirmation.', details: 'View apartment details', close: 'Close details', noUnits: 'No apartments match this filter.', loading: 'Loading apartments...', error: 'Apartment data could not be loaded. Please try again later.', monthly: 'Monthly payment', tenure: 'Term', interest: 'Annual interest rate', months: 'months', savings: 'Savings', premium: 'Additional financing cost', note: 'Illustrative estimate only. The sales team and bank will confirm final pricing and conditions.', contact: 'Contact sales', type: 'Layout' },
-    ru: { kicker: 'KERUEN / КВАРТИРЫ', availability: 'Наличие и цены необходимо уточнять.', details: 'Подробнее о квартире', close: 'Закрыть', noUnits: 'Нет квартир по выбранному фильтру.', loading: 'Загрузка квартир...', error: 'Не удалось загрузить квартиры.', monthly: 'Ежемесячный платёж', tenure: 'Срок', interest: 'Годовая ставка', months: 'мес.', savings: 'Экономия', premium: 'Переплата', note: 'Предварительный расчёт. Точные условия подтвердят менеджер и банк.', contact: 'Связаться с отделом продаж', type: 'Планировка' },
-    kz: { kicker: 'KERUEN / ПӘТЕРЛЕР', availability: 'Баға мен қолжетімділікті нақтылау қажет.', details: 'Пәтер туралы толық ақпарат', close: 'Жабу', noUnits: 'Бұл сүзгіге сай пәтер табылмады.', loading: 'Пәтерлер жүктелуде...', error: 'Пәтерлер туралы ақпаратты жүктеу мүмкін болмады.', monthly: 'Ай сайынғы төлем', tenure: 'Мерзімі', interest: 'Жылдық мөлшерлеме', months: 'ай', savings: 'Үнем', premium: 'Артық төлем', note: 'Алдын ала есеп. Нақты шарттарды менеджер мен банк растайды.', contact: 'Сату бөліміне хабарласу', type: 'Жоспар' },
+    en: { kicker: 'KERUEN / APARTMENTS', availability: 'Availability and prices are subject to confirmation.', details: 'View apartment details', close: 'Close details', noUnits: 'No apartments match this filter.', loading: 'Loading apartments...', error: 'Apartment data could not be loaded. Please try again later.', monthly: 'Monthly payment', tenure: 'Term', interest: 'Annual interest rate', months: 'months', savings: 'Savings', premium: 'Additional financing cost', note: 'Illustrative estimate only. The sales team and bank will confirm final pricing and conditions.', contact: 'Contact sales', type: 'Layout', cta: 'View Details & Calculator →' },
+    ru: { kicker: 'KERUEN / КВАРТИРЫ', availability: 'Наличие и цены необходимо уточнять.', details: 'Подробнее о квартире', close: 'Закрыть', noUnits: 'Нет квартир по выбранному фильтру.', loading: 'Загрузка квартир...', error: 'Не удалось загрузить квартиры.', monthly: 'Ежемесячный платёж', tenure: 'Срок', interest: 'Годовая ставка', months: 'мес.', savings: 'Экономия', premium: 'Переплата', note: 'Предварительный расчёт. Точные условия подтвердят менеджер и банк.', contact: 'Связаться с отделом продаж', type: 'Планировка', cta: 'Подробнее и расчёт →' },
+    kz: { kicker: 'KERUEN / ПӘТЕРЛЕР', availability: 'Баға мен қолжетімділікті нақтылау қажет.', details: 'Пәтер туралы толық ақпарат', close: 'Жабу', noUnits: 'Бұл сүзгіге сай пәтер табылмады.', loading: 'Пәтерлер жүктелуде...', error: 'Пәтерлер туралы ақпаратты жүктеу мүмкін болмады.', monthly: 'Ай сайынғы төлем', tenure: 'Мерзімі', interest: 'Жылдық мөлшерлеме', months: 'ай', savings: 'Үнем', premium: 'Артық төлем', note: 'Алдын ала есеп. Нақты шарттарды менеджер мен банк растайды.', contact: 'Сату бөліміне хабарласу', type: 'Жоспар', cta: 'Толығырақ және есептеу →' },
   }[lang];
   const calc = selectedUnit ? getAllPaymentOptions(selectedUnit.priceMin, selectedUnit.code)[payTab] : null;
+
+  const formatRoomCount = (count: number) => {
+    if (lang === 'ru') {
+      if (count === 1) return '1 комната';
+      if (count >= 2 && count <= 4) return `${count} комнаты`;
+      return `${count} комнат`;
+    }
+    if (lang === 'kz') return `${count} бөлме`;
+    return count === 1 ? '1 room' : `${count} rooms`;
+  };
 
   return (
     <main className="catalog-shell">
@@ -84,14 +94,27 @@ export default function UnitsPage() {
                 </div>
                 <div className="listing-body">
                   <div className="listing-top">
-                    <div><h3>Unit {unit.code}</h3><span style={{fontSize:12,color:'#748176'}}>{unit.type}</span></div>
-                    <span className={`listing-status ${unit.status}`}><span className={`status-dot ${unit.status}`} />{statusLabels[unit.status] || unit.status}</span>
+                    <div className="listing-title-group">
+                      <h3>Unit {unit.code}</h3>
+                      <span className="unit-type-tag">{unit.type}</span>
+                    </div>
+                    <span className={`listing-status-pill ${unit.status}`}>
+                      <span className={`status-dot ${unit.status}`} />
+                      {statusLabels[unit.status] || unit.status}
+                    </span>
                   </div>
-                  <p className="listing-details">{unit.areaSqm} m² <span style={{margin:'0 8px'}}>·</span> {unit.rooms} {t('units.rooms', lang)}{unit.view ? ` · ${unit.view}` : ''}</p>
+                  <p className="listing-details">
+                    <strong>{unit.areaSqm} m²</strong> · {formatRoomCount(unit.rooms)}{unit.view ? ` · ${unit.view}` : ''}
+                  </p>
                   <div className="listing-price">
                     <small>{t('units.starting_from', lang)}</small>
                     <strong>{formatTenge(unit.priceMin)}</strong>
                     <span>{Math.round(unit.priceMin / unit.areaSqm).toLocaleString('ru-RU')} ₸/m²</span>
+                  </div>
+                  <div className="listing-cta-btn">
+                    {unit.status === 'sold'
+                      ? (lang === 'ru' ? 'Квартира продана' : lang === 'kz' ? 'Пәтер сатылды' : 'Sold Out')
+                      : info.cta}
                   </div>
                 </div>
               </button>
