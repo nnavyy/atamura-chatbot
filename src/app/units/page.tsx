@@ -111,25 +111,29 @@ export default function UnitsPage() {
               </div>
               <button className="modal-close" aria-label={info.close} type="button" onClick={() => setSelectedUnit(null)}>×</button>
             </div>
-            <div className="unit-modal-plan">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={selectedUnit.floorPlan || plans[selectedUnit.rooms]} alt={`Floor plan for unit ${selectedUnit.code}`} />
+            <div className="unit-modal-grid">
+              <div className="unit-modal-plan">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={selectedUnit.floorPlan || plans[selectedUnit.rooms]} alt={`Floor plan for unit ${selectedUnit.code}`} />
+              </div>
+              <div className="unit-modal-calc">
+                <div className="payment-tabs" role="group" aria-label="Payment method">
+                  {(['full','installment','mortgage'] as const).map((tab) => (
+                    <button className="payment-tab" type="button" aria-pressed={payTab === tab} key={tab} onClick={() => setPayTab(tab)}>{paymentLabels[tab]}</button>
+                  ))}
+                </div>
+                <div className="calculation-rows">
+                  <div className="calculation-row"><span>{t('payment.dp', lang)} ({calc.dpPercent}%)</span><strong>{formatTenge(calc.dp)}</strong></div>
+                  {calc.monthly > 0 && <div className="calculation-row"><span>{info.monthly}</span><strong>{formatTenge(calc.monthly)}</strong></div>}
+                  {calc.tenor > 0 && <div className="calculation-row"><span>{info.tenure}</span><strong>{calc.tenor} {info.months}</strong></div>}
+                  {calc.interestRate > 0 && <div className="calculation-row"><span>{info.interest}</span><strong>{calc.interestRate}%</strong></div>}
+                  <div className="calculation-row"><span>{t('payment.total', lang)}</span><strong>{formatTenge(calc.total)}</strong></div>
+                  {calc.savings !== 0 && <div className="calculation-row"><span>{calc.savings > 0 ? info.savings : info.premium}</span><strong>{formatTenge(Math.abs(calc.savings))}</strong></div>}
+                </div>
+                <p className="modal-disclaimer">{info.note}</p>
+                <a href="tel:+77007001111" className="btn-primary" style={{width:'100%',display:'block',textAlign:'center'}}>{info.contact} ↗</a>
+              </div>
             </div>
-            <div className="payment-tabs" role="group" aria-label="Payment method">
-              {(['full','installment','mortgage'] as const).map((tab) => (
-                <button className="payment-tab" type="button" aria-pressed={payTab === tab} key={tab} onClick={() => setPayTab(tab)}>{paymentLabels[tab]}</button>
-              ))}
-            </div>
-            <div className="calculation-rows">
-              <div className="calculation-row"><span>{t('payment.dp', lang)} ({calc.dpPercent}%)</span><strong>{formatTenge(calc.dp)}</strong></div>
-              {calc.monthly > 0 && <div className="calculation-row"><span>{info.monthly}</span><strong>{formatTenge(calc.monthly)}</strong></div>}
-              {calc.tenor > 0 && <div className="calculation-row"><span>{info.tenure}</span><strong>{calc.tenor} {info.months}</strong></div>}
-              {calc.interestRate > 0 && <div className="calculation-row"><span>{info.interest}</span><strong>{calc.interestRate}%</strong></div>}
-              <div className="calculation-row"><span>{t('payment.total', lang)}</span><strong>{formatTenge(calc.total)}</strong></div>
-              {calc.savings !== 0 && <div className="calculation-row"><span>{calc.savings > 0 ? info.savings : info.premium}</span><strong>{formatTenge(Math.abs(calc.savings))}</strong></div>}
-            </div>
-            <p className="modal-disclaimer">{info.note}</p>
-            <a href="tel:+77007001111" className="btn-primary" style={{width:'100%'}}>{info.contact} ↗</a>
           </section>
         </div>
       )}

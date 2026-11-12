@@ -158,12 +158,16 @@ button:disabled { cursor: not-allowed; }
 .listing-price span { display: block; font-size: 11px; color: #788479; margin-top: 2px; }
 .catalog-state { padding: 60px; text-align: center; border: 1px solid #d9e0d8; color: #607168; }
 .modal-backdrop { position: fixed; inset: 0; z-index: 3000; padding: 24px; display: grid; place-items: center; background: rgba(12, 27, 21, .65); }
-.unit-modal { background: #fff; width: min(100%, 740px); padding: 32px; max-height: 90vh; overflow-y: auto; border-radius: 5px; box-shadow: 0 18px 55px rgba(0,0,0,.16); }
-.unit-modal-head { display: flex; justify-content: space-between; align-items: start; gap: 14px; }
+.unit-modal { background: #fff; width: min(100%, 960px); padding: 32px; max-height: 90vh; overflow-y: auto; border-radius: 8px; box-shadow: 0 25px 65px rgba(0,0,0,.18); }
+.unit-modal-head { display: flex; justify-content: space-between; align-items: start; gap: 14px; margin-bottom: 20px; }
 .unit-modal h2 { font-size: 30px; }
-.modal-close { border: 1px solid #d4ded3; width: 36px; height: 36px; background: #fff; font-size: 20px; color: #21382e; }
-.unit-modal-plan { background: #eef0ea; margin-block: 25px; height: 240px; display: grid; place-items: center; }
-.unit-modal-plan img { max-height: 94%; max-width: 92%; object-fit: contain; }
+.modal-close { border: 1px solid #d4ded3; width: 36px; height: 36px; background: #fff; font-size: 20px; color: #21382e; cursor: pointer; border-radius: 4px; }
+.unit-modal-grid { display: grid; grid-template-columns: 1fr; gap: 28px; }
+@media (min-width: 768px) {
+  .unit-modal-grid { grid-template-columns: 1.05fr 1fr; align-items: start; }
+}
+.unit-modal-plan { background: #f9fbf9; border: 1px solid #e1e9e0; border-radius: 6px; padding: 18px; height: 380px; display: grid; place-items: center; }
+.unit-modal-plan img { max-height: 340px; max-width: 95%; object-fit: contain; }
 .payment-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
 .payment-tab { padding: 9px 14px; background: transparent; color: #566a5c; border: 1px solid #c9d4c8; font-weight: 600; font-size: 12px; }
 .payment-tab[aria-pressed="true"] { background: #1e392e; color: white; border-color: #1e392e; }

@@ -19,6 +19,7 @@ interface FilterCriteria {
   rooms?: number;
   view?: string;
   minArea?: number;
+  unitCode?: string;
 }
 
 /**
@@ -92,6 +93,7 @@ export function extractCriteria(entities: Record<string, unknown>): FilterCriter
     rooms: entities.rooms as number | undefined,
     view: entities.view as string | undefined,
     minArea: entities.minArea as number | undefined,
+    unitCode: entities.unit_code as string | undefined,
   };
 }
 

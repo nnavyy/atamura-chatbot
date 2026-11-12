@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { t } from '@/lib/i18n';
+import { t, Language } from '@/lib/i18n';
 import { useLanguage } from '@/components/LanguageContext';
 
 interface Analytics {
