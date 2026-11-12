@@ -1,10 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ChatMessage, LLMResponse, LLMProvider } from './llm';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-
 export class GeminiProvider implements LLMProvider {
-  private model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  private getModel() {
+    const apiKey = process.env.GEMINI_API_KEY || '';
+    const genAI = new GoogleGenerativeAI(apiKey);
+    return genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  }
 
   async generateResponse(
     messages: ChatMessage[],
@@ -20,11 +22,13 @@ export class GeminiProvider implements LLMProvider {
 
     const finalPrompt = `${fullSystemPrompt}\n\n--- CONVERSATION ---\n${conversationHistory}\n--- END CONVERSATION ---\n\nRespond to the last user message. Remember to include the JSON block at the end of your response.`;
 
+    const model = this.getModel();
+
     // Retry logic with exponential backoff
     const maxRetries = 3;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        const result = await this.model.generateContent(finalPrompt);
+        const result = await model.generateContent(finalPrompt);
         const responseText = result.response.text();
         return this.parseResponse(responseText);
       } catch (error: unknown) {

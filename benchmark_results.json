@@ -1,0 +1,173 @@
+{
+  "summary": {
+    "zeroShot": {
+      "csr": "66.7",
+      "faithfulness": "100.0",
+      "refusal": "66.7",
+      "latency": "6091.0"
+    },
+    "naiveRAG": {
+      "csr": "66.7",
+      "faithfulness": "100.0",
+      "refusal": "66.7",
+      "latency": "2709.3"
+    },
+    "proposed6RAG": {
+      "csr": "100.0",
+      "faithfulness": "100.0",
+      "refusal": "66.7",
+      "latency": "7291.7"
+    }
+  },
+  "details": [
+    {
+      "testCase": {
+        "id": "TC-01",
+        "category": "budget_constraint",
+        "query": "Saya mencari apartemen dengan budget maksimal 15 juta Tenge. Tolong rekomendasikan unit yang cocok dan sebutkan harganya.",
+        "budgetLimit": 15000000,
+        "expectedAllowedUnits": [
+          "1A",
+          "1B",
+          "1V"
+        ],
+        "expectedExcludedUnits": [
+          "2A",
+          "2B",
+          "2V",
+          "3A",
+          "3B"
+        ],
+        "expectedPricingFactual": [
+          {
+            "unit": "1B",
+            "price": 12000000
+          },
+          {
+            "unit": "1A",
+            "price": 13749400
+          }
+        ]
+      },
+      "zeroShot": {
+        "text": "Saya tidak dapat merekomendasikan unit apartemen spesifik beserta harganya secara langsung. Sebagai AI, saya tidak memiliki akses real-time ke database properti dan ketersediaan serta harga di pasar real estat sangat dinamis dan dapat berubah dengan cepat.\n\nUntuk menemukan unit yang sesuai dengan budget maksimal 15 juta Tenge, saya sangat menyarankan Anda untuk:\n\n1.  **Mengunjungi situs web properti lokal terkemuka di Kazakhstan:** Seperti **Krisha.kz**. Ini adalah platform properti utama di Kazakhstan. Anda dapat menggunakan filter pencarian untuk menetapkan budget maksimal 15.000.000 Tenge dan area yang Anda minati (misalnya, Almaty, Astana, dll.).\n2.  **Menghubungi agen properti lokal:** Mereka memiliki informasi terkini mengenai listing yang tersedia dan dapat membantu Anda menemukan pilihan yang cocok sesuai kriteria Anda.\n\nDengan budget 15 juta Tenge, Anda kemungkinan besar dapat menemukan apartemen studio atau 1 kamar tidur di kota-kota besar, atau apartemen 2 kamar tidur di area pinggiran kota atau kota-kota yang lebih kecil, tergantung pada kondisi dan lokasi bangunan.",
+        "latencyMs": 9930,
+        "eval": {
+          "csr": 100,
+          "refusal": 100,
+          "faithfulness": 100
+        }
+      },
+      "naiveRAG": {
+        "text": "Tentu, saya bisa bantu! Berdasarkan budget maksimal 15 juta KZT (Tenge) yang Anda miliki, berikut adalah unit-unit yang tersedia dan cocok untuk Anda:\n\n*   **Unit 1A:** Tipe 1BR, Luas 37.85 sqm, Harga **13.749.400 KZT**. Menghadap Courtyard.\n*   **Unit 1B:** Tipe 1BR, Luas 29.89 sqm, Harga **12.000.000 KZT**. Menghadap Courtyard.\n*   **Unit 1V:** Tipe 1BR, Luas 45.66 sqm, Harga **15.500.000 KZT**. Menghadap Mountain.\n\nSemoga rekomendasi ini membantu Anda menemukan unit yang tepat di Atamura KERUEN!",
+        "latencyMs": 2591,
+        "eval": {
+          "csr": 100,
+          "refusal": 100,
+          "faithfulness": 100
+        }
+      },
+      "proposed6RAG": {
+        "text": "Halo! Selamat datang di Atamura Group. Saya Atamura AI Assistant, Property Consultant Anda.\n\nBerdasarkan anggaran maksimal Anda sebesar 15.000.000 ₸, saya memiliki beberapa pilihan apartemen 1 kamar tidur (1BR) di kompleks perumahan KERUEN yang mungkin cocok untuk Anda:\n\n*   **Unit 1A (1BR)**: Luas 37.85 m², harga mulai dari **13.749.400 ₸**. Unit ini memiliki balkon, dapur-ruang tamu, dan kamar mandi. Tersedia di lantai 2-5 dengan pemandangan halaman.\n*   **Unit 1B (1BR)**: Luas 29.89 m², harga mulai dari **12.000.000 ₸**. Unit ini memiliki tata letak yang ringkas, kamar mandi, dan dapur-ruang tamu. Tersedia di lantai 2-5 dengan pemandangan halaman.\n\nApakah Anda mencari apartemen dengan 1 kamar tidur, atau apakah Anda terbuka untuk pilihan lain jika anggarannya sedikit lebih tinggi?",
+        "recommendedUnits": [
+          "1A",
+          "1B"
+        ],
+        "latencyMs": 6358,
+        "eval": {
+          "csr": 100,
+          "refusal": 100,
+          "faithfulness": 100
+        }
+      }
+    },
+    {
+      "testCase": {
+        "id": "TC-02",
+        "category": "sold_unit_refusal",
+        "query": "Saya sangat tertarik dengan Unit 3B yang 3 kamar tidur. Apakah unit 3B ini masih tersedia untuk saya pesan sekarang?",
+        "mustRefuseSoldUnit": true,
+        "expectedExcludedUnits": [
+          "3B"
+        ]
+      },
+      "zeroShot": {
+        "text": "Sebagai AI, saya tidak memiliki informasi *real-time* mengenai ketersediaan unit properti. Untuk mengetahui apakah Unit 3B (3 kamar tidur) masih tersedia untuk dipesan sekarang, Anda perlu:\n\n*   **Menghubungi agen properti** yang Anda ajak bicara sebelumnya.\n*   **Menghubungi pengembang langsung.**\n*   **Mengecek situs web resmi** mereka atau portal properti di mana Anda menemukan unit tersebut.\n\nMereka akan dapat memberikan informasi paling akurat dan terkini.",
+        "latencyMs": 2990,
+        "eval": {
+          "csr": 0,
+          "refusal": 0,
+          "faithfulness": 100
+        }
+      },
+      "naiveRAG": {
+        "text": "Mohon maaf, Unit 3B (3 kamar tidur) sudah **sold** atau terjual. Unit tersebut tidak lagi tersedia untuk dipesan.\n\nNamun, kami masih memiliki Unit 3A yang juga merupakan tipe 3 kamar tidur dengan luas 77.6 sqm dan pemandangan Mountain, serta berstatus available. Apakah Anda ingin mengetahui lebih lanjut tentang Unit 3A atau unit lainnya?",
+        "latencyMs": 1698,
+        "eval": {
+          "csr": 0,
+          "refusal": 0,
+          "faithfulness": 100
+        }
+      },
+      "proposed6RAG": {
+        "text": "I apologize, but I only speak English, Russian (Русский), and Kazakh (Қазақша). Could you please rephrase your question in one of these languages? I would be happy to help you find your perfect apartment at KERUEN.",
+        "recommendedUnits": [],
+        "latencyMs": 9689,
+        "eval": {
+          "csr": 100,
+          "refusal": 0,
+          "faithfulness": 100
+        }
+      }
+    },
+    {
+      "testCase": {
+        "id": "TC-03",
+        "category": "financial_calc",
+        "query": "Berapa simulasi cicilan untuk Unit 1A seharga 13.749.400 Tenge jika saya ambil program cicilan pengembang 36 bulan dengan DP 30%?",
+        "expectedPricingFactual": [
+          {
+            "unit": "1A",
+            "price": 13749400
+          }
+        ]
+      },
+      "zeroShot": {
+        "text": "Berikut simulasinya:\n\n1.  **Harga Unit:** 13.749.400 Tenge\n2.  **DP 30%:** 0.30 * 13.749.400 Tenge = **4.124.820 Tenge**\n3.  **Sisa yang dicicil:** 13.749.400 Tenge - 4.124.820 Tenge = **9.624.580 Tenge**\n4.  **Cicilan per bulan (36 bulan):** 9.624.580 Tenge / 36 bulan = **267.349,44 Tenge**\n\nJadi, simulasi cicilan Anda adalah **267.349,44 Tenge per bulan** selama 36 bulan setelah membayar DP sebesar 4.124.820 Tenge.",
+        "latencyMs": 5353,
+        "eval": {
+          "csr": 100,
+          "refusal": 100,
+          "faithfulness": 100
+        }
+      },
+      "naiveRAG": {
+        "text": "Tentu, mari kita hitung simulasi cicilan untuk Unit 1A:\n\n*   **Harga Unit 1A:** 13.749.400 KZT\n*   **Down Payment (DP) 30%:** 30% x 13.749.400 KZT = **4.124.820 KZT**\n*   **Sisa Pokok Pinjaman (setelah DP):** 13.749.400 KZT - 4.124.820 KZT = **9.624.580 KZT**\n\nJika sisa pokok pinjaman sebesar 9.624.580 KZT dicicil selama 36 bulan:\n\n*   **Simulasi Cicilan Per Bulan:** 9.624.580 KZT / 36 bulan = **267.349,44 KZT**\n\nJadi, simulasi cicilan Anda untuk Unit 1A dengan DP 30% dan program pengembang 36 bulan adalah sekitar **267.349 KZT per bulan**.\n\nPerlu diingat bahwa simulasi ini belum termasuk biaya-biaya lainnya (seperti biaya notaris, balik nama, dll.) dan syarat serta ketentuan program cicilan pengembang dapat berlaku.",
+        "latencyMs": 3839,
+        "eval": {
+          "csr": 100,
+          "refusal": 100,
+          "faithfulness": 100
+        }
+      },
+      "proposed6RAG": {
+        "text": "Tentu, saya bisa bantu menghitung simulasi cicilan untuk Unit 1A dengan harga 13.749.400 ₸.\n\nJika Anda mengambil program cicilan pengembang selama 36 bulan dengan uang muka (DP) 30%:\n*   **Harga Unit 1A:** 13.749.400 ₸\n*   **Uang Muka (DP) 30%:** 4.124.820 ₸\n*   **Sisa yang dicicil:** 13.749.400 ₸ - 4.124.820 ₸ = 9.624.580 ₸\n*   **Cicilan bulanan (selama 36 bulan):** 9.624.580 ₸ / 36 = 267.349 ₸ per bulan.\n\nSkema ini bebas bunga (0% interest) langsung dari pengembang, Atamura Group.",
+        "recommendedUnits": [],
+        "calculation": {
+          "unitCode": "1A",
+          "method": "developer_installment",
+          "dp": 4124820,
+          "monthly": 267349,
+          "total": 13749400,
+          "tenor": 36
+        },
+        "latencyMs": 5828,
+        "eval": {
+          "csr": 100,
+          "refusal": 100,
+          "faithfulness": 100
+        }
+      }
+    }
+  ]
+}
