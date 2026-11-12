@@ -154,5 +154,30 @@ export function extractEntities(message: string): Record<string, unknown> {
     entities.unit_code = `${num}${normalizedLetter}`;
   }
 
+  // 5. Custom DP, Rate, and Tenor extraction (e.g. "DP 40%", "24 bulan", "взнос 40%", "24 месяца", "40% жарна", "24 ай", "15% ставка")
+  const dpPctMatch =
+    message.match(/(\d{1,2})\s*%\s*(?:down(?:\s*payment)?|взнос[а-я]*|жарна|dp)/i) ||
+    message.match(/(?:dp|down\s*payment|взнос[а-я]*|бастапқы\s*жарна)\s*(\d{1,2})\s*%/i) ||
+    message.match(/(\d{1,2})%\s*бастапқы/i);
+  if (dpPctMatch) {
+    const val = parseInt(dpPctMatch[1]);
+    if (val >= 5 && val <= 90) entities.custom_dp = val;
+  }
+
+  const rateMatch =
+    message.match(/(\d{1,2}(?:\.\d+)?)\s*%\s*(?:annual\s*interest|годовых|ставк[а-я]*|мөлшерлеме|interest|rate|bunga)/i) ||
+    message.match(/(?:annual\s*interest|ставк[а-я]*|годовых|мөлшерлеме|rate|bunga)\s*(\d{1,2}(?:\.\d+)?)\s*%/i) ||
+    message.match(/жылдық\s*(\d{1,2}(?:\.\d+)?)\s*%/i);
+  if (rateMatch) {
+    const val = parseFloat(rateMatch[1]);
+    if (val >= 0 && val <= 50) entities.custom_rate = val;
+  }
+
+  const tenorMatch = message.match(/(\d{1,3})\s*(?:bulan|months?|месяц(?:а|ев)?|ай)\b/i);
+  if (tenorMatch) {
+    const months = parseInt(tenorMatch[1]);
+    if (months >= 1 && months <= 360) entities.custom_tenor = months;
+  }
+
   return entities;
 }
