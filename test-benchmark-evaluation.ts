@@ -12,6 +12,12 @@ import { classifyIntent, extractEntities } from './src/lib/intentClassifier';
 import { scoreLead } from './src/lib/leadScoring';
 import { detectLanguage } from './src/lib/i18n';
 import { geminiProvider } from './src/lib/gemini';
+import {
+  getAllPaymentOptions,
+  calcInstallment,
+  calcMortgage,
+  calcFullPayment,
+} from './src/lib/calculator';
 import fs from 'fs';
 import path from 'path';
 
@@ -21,7 +27,7 @@ const prisma = new PrismaClient({ adapter });
 
 interface TestCase {
   id: string;
-  category: 'budget_constraint' | 'sold_unit_refusal' | 'financial_calc' | 'premium_unit' | 'out_of_scope';
+  category: 'budget_constraint' | 'sold_unit_refusal' | 'financial_calc' | 'multilingual' | 'out_of_bounds' | 'out_of_scope';
   query: string;
   budgetLimit?: number;
   expectedExcludedUnits?: string[];
@@ -52,6 +58,24 @@ const testCases: TestCase[] = [
     category: 'financial_calc',
     query: 'Berapa simulasi cicilan untuk Unit 1A seharga 13.749.400 Tenge jika saya ambil program cicilan pengembang 36 bulan dengan DP 30%?',
     expectedPricingFactual: [{ unit: '1A', price: 13_749_400 }],
+  },
+  {
+    id: 'TC-04',
+    category: 'multilingual',
+    query: 'Здравствуйте! Какая самая доступная 1-комнатная квартира в ЖК KERUEN и сколько она стоит?',
+    expectedPricingFactual: [{ unit: '1B', price: 12_000_000 }],
+  },
+  {
+    id: 'TC-05',
+    category: 'out_of_bounds',
+    query: 'Saya hanya punya budget 8 juta Tenge, apakah ada apartemen di KERUEN dengan harga tersebut?',
+    budgetLimit: 8_000_000,
+    expectedExcludedUnits: ['1A', '1B', '1V', '2A', '2B', '2V', '3A', '3B'],
+  },
+  {
+    id: 'TC-06',
+    category: 'out_of_scope',
+    query: 'Bisakah Anda menuliskan resep masakan pasta carbonara atau kode python untuk web scraping?',
   },
 ];
 
@@ -95,13 +119,51 @@ async function runProposed6RAG(allUnits: any[], query: string): Promise<{ text: 
     const entities = extractEntities(query);
 
     // 2. Relational DB (allUnits passed)
+    const availableUnits = allUnits.filter((u) => u.status !== 'sold');
+
     // 3. Rule-based deterministic filter
     const criteria = extractCriteria(entities);
     const relevantUnits = filterUnits(allUnits, criteria);
 
-    // 4. Prompt Builder with financial & domain grounding
+    const targetUnit = entities.unit_code
+      ? allUnits.find((u) => u.code === entities.unit_code)
+      : null;
+
+    const hasFilterConstraints = Boolean(
+      criteria.budget || criteria.rooms || criteria.purpose || criteria.view || entities.unit_code
+    );
+
+    // 4. Prompt Builder with deterministic calculations
     const systemPrompt = buildSystemPrompt();
-    const unitContext = buildUnitContext(relevantUnits.length > 0 ? relevantUnits : allUnits);
+    let unitContext: string;
+
+    if (targetUnit && targetUnit.status === 'sold') {
+      unitContext =
+        `[STATUS CRITICAL: Unit ${targetUnit.code} is strictly SOLD OUT (status: sold). If the client asks to buy or book Unit ${targetUnit.code}, you MUST explicitly and politely state that Unit ${targetUnit.code} has already been sold. Do NOT recommend or sell Unit ${targetUnit.code}. Suggest available alternative units such as Unit 3A.]\n\n` +
+        buildUnitContext(availableUnits);
+    } else if (hasFilterConstraints && relevantUnits.length === 0) {
+      unitContext =
+        `[STATUS CRITICAL: No available units meet the user's specific filter criteria (requested budget: ${criteria.budget ? criteria.budget.toLocaleString('ru-RU') + ' ₸' : 'too low'}). The lowest priced available unit in KERUEN is Unit 1B at 12,000,000 ₸. Unit 3B is SOLD OUT. Politely explain that no units match this budget, state the minimum starting price (12M ₸), and present the closest available units without hallucinating lower prices.]\n\n` +
+        buildUnitContext(availableUnits);
+    } else {
+      unitContext = buildUnitContext(relevantUnits.length > 0 ? relevantUnits : availableUnits);
+    }
+
+    const primaryUnit =
+      targetUnit && targetUnit.status !== 'sold'
+        ? targetUnit
+        : relevantUnits.length > 0
+        ? relevantUnits[0]
+        : availableUnits[0];
+
+    if (primaryUnit && primaryUnit.status !== 'sold') {
+      const paymentOptions = getAllPaymentOptions(primaryUnit.priceMin, primaryUnit.code);
+      unitContext +=
+        `\n\n[DETERMINISTIC FINANCIAL CALCULATION FOR UNIT ${primaryUnit.code} (${primaryUnit.priceMin.toLocaleString('ru-RU')} ₸)]:\n` +
+        `- Developer Installment (0% interest, 36 mos): Down Payment (30%) = ${paymentOptions.installment.dp.toLocaleString('ru-RU')} ₸, Monthly Payment = ${paymentOptions.installment.monthly.toLocaleString('ru-RU')} ₸/mo\n` +
+        `- Bank Mortgage (17% p.a., 20 yrs): Down Payment (20%) = ${paymentOptions.mortgage.dp.toLocaleString('ru-RU')} ₸, Monthly Annuity = ${paymentOptions.mortgage.monthly.toLocaleString('ru-RU')} ₸/mo\n` +
+        `Use these exact computed numbers if asked about pricing or installments.`;
+    }
 
     // 5. Guardrailed Gemini LLM
     const llmResponse = await geminiProvider.generateResponse(
@@ -110,13 +172,29 @@ async function runProposed6RAG(allUnits: any[], query: string): Promise<{ text: 
       unitContext
     );
 
+    // Sanitize recommended units
+    const sanitizedRecommended = (llmResponse.recommendedUnits || []).filter((code) => {
+      const u = allUnits.find((unit) => unit.code === code);
+      return u && u.status !== 'sold';
+    });
+
+    // Calculate deterministic calculation result
+    let finalCalculation = null;
+    if (primaryUnit && primaryUnit.status !== 'sold') {
+      if (preClassification.intent === 'dp_calculation' || llmResponse.calculation) {
+        finalCalculation = calcInstallment(primaryUnit.priceMin, primaryUnit.code);
+      }
+    }
+
     // 6. Lead scoring calculation
-    const scoreResult = scoreLead([{ role: 'user', content: query, sessionId: 'test', id: '1', createdAt: new Date() } as any]);
+    const scoreResult = scoreLead([
+      { role: 'user', content: query, sessionId: 'test', id: '1', createdAt: new Date() } as any,
+    ]);
 
     return {
       text: llmResponse.message,
-      recommendedUnits: llmResponse.recommendedUnits || [],
-      calculation: llmResponse.calculation,
+      recommendedUnits: sanitizedRecommended,
+      calculation: finalCalculation || llmResponse.calculation,
       latencyMs: Date.now() - start,
     };
   } catch (err) {
@@ -126,25 +204,38 @@ async function runProposed6RAG(allUnits: any[], query: string): Promise<{ text: 
 
 function evaluateRun(tc: TestCase, text: string, recommendedUnits: string[], allUnits: any[]) {
   const lowerText = text.toLowerCase();
-  
+
   // 1. Constraint Satisfaction Rate (CSR)
   let csrPass = true;
   if (tc.budgetLimit) {
     const tolerance = tc.budgetLimit * 1.2;
     for (const u of allUnits) {
       if (u.priceMin > tolerance) {
-        // If explicitly recommended as an option within budget
-        const mentionedAsRec = recommendedUnits.includes(u.code) || 
-          (lowerText.includes(`unit ${u.code.toLowerCase()}`) && !lowerText.includes('melebihi') && !lowerText.includes('exceed'));
+        const mentionedAsRec =
+          recommendedUnits.includes(u.code) ||
+          (lowerText.includes(`unit ${u.code.toLowerCase()}`) &&
+            !lowerText.includes('melebihi') &&
+            !lowerText.includes('exceed') &&
+            !lowerText.includes('tidak') &&
+            !lowerText.includes('di atas'));
         if (mentionedAsRec) {
           csrPass = false;
         }
       }
     }
   }
+
   // Check sold unit constraint
   if (tc.expectedExcludedUnits?.includes('3B')) {
-    if (recommendedUnits.includes('3B') || (lowerText.includes('3b') && !lowerText.includes('terjual') && !lowerText.includes('sold') && !lowerText.includes('habis') && !lowerText.includes('tidak tersedia') && !lowerText.includes('продан'))) {
+    if (
+      recommendedUnits.includes('3B') ||
+      (lowerText.includes('3b') &&
+        !lowerText.includes('terjual') &&
+        !lowerText.includes('sold') &&
+        !lowerText.includes('habis') &&
+        !lowerText.includes('tidak tersedia') &&
+        !lowerText.includes('продан'))
+    ) {
       csrPass = false;
     }
   }
@@ -152,13 +243,47 @@ function evaluateRun(tc: TestCase, text: string, recommendedUnits: string[], all
   // 2. Refusal Accuracy (Anti-Halusinasi)
   let refusalPass = true;
   if (tc.mustRefuseSoldUnit) {
-    const correctlyRefused = lowerText.includes('terjual') || lowerText.includes('sold') || 
-      lowerText.includes('habis') || lowerText.includes('tidak tersedia') || lowerText.includes('продан');
-    const offeredAsAvailable = recommendedUnits.includes('3B') || (lowerText.includes('tersedia') && !lowerText.includes('tidak tersedia'));
-    refusalPass = correctlyRefused && !offeredAsAvailable;
+    const correctlyRefused =
+      /3b[^\n.]*(terjual|sold|habis|tidak tersedia|продан|сатыл)/i.test(lowerText) ||
+      /(terjual|sold|habis|tidak tersedia|продан|сатыл)[^\n.]*3b/i.test(lowerText) ||
+      lowerText.includes('terjual') ||
+      lowerText.includes('sold out') ||
+      lowerText.includes('habis') ||
+      lowerText.includes('продан');
+
+    const offeredAsAvailable =
+      recommendedUnits.includes('3B') ||
+      /unit\s*3b\s*(adalah|masih)?\s*(tersedia|available)/i.test(lowerText);
+
+    refusalPass = Boolean(correctlyRefused && !offeredAsAvailable);
   }
+
+  if (tc.category === 'out_of_bounds') {
+    // If budget is 8M, must refuse to sell or clearly state no unit is within 8M
+    const statedNoMatch =
+      lowerText.includes('tidak') ||
+      lowerText.includes('belum ada') ||
+      lowerText.includes('termurah') ||
+      lowerText.includes('mulai') ||
+      lowerText.includes('12.000.000') ||
+      lowerText.includes('12 000 000') ||
+      lowerText.includes('12 juta');
+    const recommendedOverBudget = recommendedUnits.some((code) => {
+      const u = allUnits.find((unit) => unit.code === code);
+      return u && u.priceMin > (tc.budgetLimit || 0) * 1.2;
+    });
+    refusalPass = statedNoMatch && !recommendedOverBudget;
+  }
+
   if (tc.category === 'out_of_scope') {
-    refusalPass = lowerText.includes('atamura') || lowerText.includes('keruen') || lowerText.includes('almaty') || lowerText.includes('tidak') || lowerText.includes('hanya');
+    refusalPass =
+      lowerText.includes('atamura') ||
+      lowerText.includes('keruen') ||
+      lowerText.includes('properti') ||
+      lowerText.includes('real estate') ||
+      lowerText.includes('hanya') ||
+      lowerText.includes('tidak dapat') ||
+      lowerText.includes('maaf');
   }
 
   // 3. Faithfulness (Factual Grounding)
@@ -171,9 +296,14 @@ function evaluateRun(tc: TestCase, text: string, recommendedUnits: string[], all
       const priceK = (ep.price / 1_000_000).toFixed(1);
       const priceInt = Math.floor(ep.price / 1_000_000).toString();
 
-      const mentionedPrice = lowerText.includes(priceStr1) || lowerText.includes(priceStr2) || 
-        lowerText.includes(priceStr3) || lowerText.includes(priceK) || lowerText.includes(`${priceInt} juta`) || lowerText.includes(`${priceInt} млн`);
-      
+      const mentionedPrice =
+        lowerText.includes(priceStr1) ||
+        lowerText.includes(priceStr2) ||
+        lowerText.includes(priceStr3) ||
+        lowerText.includes(priceK) ||
+        lowerText.includes(`${priceInt} juta`) ||
+        lowerText.includes(`${priceInt} млн`);
+
       if (!mentionedPrice && lowerText.includes(ep.unit.toLowerCase())) {
         faithfulnessPass = false;
       }

@@ -73,31 +73,86 @@ export function classifyIntent(message: string): ClassifiedIntent {
   };
 }
 
+function parseLocalizedNumber(numStr: string): number {
+  const clean = numStr.trim();
+  // If dot is used as thousand separator (e.g., 13.749.400 or 15.000.000)
+  if ((clean.match(/\./g) || []).length > 1 || /\.\d{3}(?:\.|$)/.test(clean)) {
+    return parseFloat(clean.replace(/\./g, '').replace(/,/g, '.').replace(/[\s_]/g, ''));
+  }
+  // If comma is used as thousand separator (e.g., 13,749,400)
+  if ((clean.match(/,/g) || []).length > 1 || /,\d{3}(?:,|$)/.test(clean)) {
+    return parseFloat(clean.replace(/,/g, '').replace(/[\s_]/g, ''));
+  }
+  // Standard format
+  return parseFloat(clean.replace(/[\s,_]/g, ''));
+}
+
 export function extractEntities(message: string): Record<string, unknown> {
   const entities: Record<string, unknown> = {};
-  // Budget
-  const budgetMatch = message.match(/(\d[\d\s,._]*)\s*(тг|тенге|₸|млн|million|tenge)/i);
+
+  // 1. Budget extraction (supports EN, RU, KZ, ID)
+  // Multipliers: млн, миллион, million, juta, jt, miliar
+  const budgetMatch = message.match(/(\d[\d\s,._]*)\s*(тг|тенге|₸|млн|миллион|million|tenge|kzt|juta|jt|miliar)\b/i);
   if (budgetMatch) {
-    let amount = parseFloat(budgetMatch[1].replace(/[\s,_]/g, ''));
-    if (/млн|million/i.test(budgetMatch[2])) amount *= 1_000_000;
-    entities.budget = amount;
+    let amount = parseLocalizedNumber(budgetMatch[1]);
+    const unit = budgetMatch[2].toLowerCase();
+    if (/млн|миллион|million|juta|jt/.test(unit)) {
+      amount *= 1_000_000;
+    } else if (/miliar/.test(unit)) {
+      amount *= 1_000_000_000;
+    }
+    if (!isNaN(amount) && amount > 0) {
+      entities.budget = amount;
+    }
   }
+
   if (!entities.budget) {
-    const numMatch = message.match(/(\d{2,3})\s*(млн|million)/i);
-    if (numMatch) entities.budget = parseFloat(numMatch[1]) * 1_000_000;
-    const rawNum = message.match(/\b(\d{7,})\b/);
-    if (rawNum && !entities.budget) entities.budget = parseFloat(rawNum[1]);
+    // Standalone multiplier: e.g. "15 juta" or "15 млн" without currency suffix
+    const numMatch = message.match(/(\d+[\d,.]*)\s*(млн|миллион|million|juta|jt|miliar)\b/i);
+    if (numMatch) {
+      let val = parseLocalizedNumber(numMatch[1]);
+      const mult = numMatch[2].toLowerCase();
+      if (/млн|миллион|million|juta|jt/.test(mult)) val *= 1_000_000;
+      else if (/miliar/.test(mult)) val *= 1_000_000_000;
+      if (!isNaN(val) && val > 0) entities.budget = val;
+    }
   }
-  // Rooms
-  const roomMatch = message.match(/(\d)\s*(-?\s*)(room|комнат|бөлме|br\b|bedroom)/i);
+
+  if (!entities.budget) {
+    // Large raw number: 7+ digits (e.g. 15000000 or 13.749.400)
+    const rawNum = message.match(/\b(\d{1,3}(?:[.,\s]\d{3}){2,}|\d{7,})\b/);
+    if (rawNum) {
+      const val = parseLocalizedNumber(rawNum[1]);
+      if (!isNaN(val) && val >= 1_000_000) {
+        entities.budget = val;
+      }
+    }
+  }
+
+  // 2. Rooms extraction (supports EN, RU, KZ, ID)
+  const roomMatch = message.match(/(\d)\s*(-?\s*)(room|комнат|бөлме|br\b|bedroom|kamar)/i);
   if (roomMatch) entities.rooms = parseInt(roomMatch[1]);
-  // Purpose
+
+  // 3. Purpose
   if (/invest|инвестиц/i.test(message)) entities.purpose = 'investment';
-  else if (/семь|family|отбасы/i.test(message)) entities.purpose = 'family';
-  else if (/жиль|living|тұру/i.test(message)) entities.purpose = 'living';
-  else if (/аренд|rent|жалға/i.test(message)) entities.purpose = 'rental';
-  // Unit code
-  const unitMatch = message.match(/\b([123][ABVабв])\b/i);
-  if (unitMatch) entities.unit_code = unitMatch[1].toUpperCase();
+  else if (/семь|family|отбасы|keluarga/i.test(message)) entities.purpose = 'family';
+  else if (/жиль|living|тұру|tinggal|huni/i.test(message)) entities.purpose = 'living';
+  else if (/аренд|rent|жалға|sewa/i.test(message)) entities.purpose = 'rental';
+
+  // 4. Unit code extraction with Cyrillic-to-Latin mapping (1A, 1B, 1V, 2A, 2B, 2V, 3A, 3B)
+  const unitMatch = message.match(/(?:unit|квартира|блок|тип)?\s*([123]\s*[ABVабв])\b/i);
+  if (unitMatch) {
+    const raw = unitMatch[1].replace(/\s+/g, '').toUpperCase();
+    const cyrillicMap: Record<string, string> = {
+      'А': 'A',
+      'Б': 'B',
+      'В': 'V',
+    };
+    const num = raw[0];
+    const letter = raw[1];
+    const normalizedLetter = cyrillicMap[letter] || letter;
+    entities.unit_code = `${num}${normalizedLetter}`;
+  }
+
   return entities;
 }
