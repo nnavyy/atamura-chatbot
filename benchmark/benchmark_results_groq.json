@@ -4,9 +4,9 @@
   "provenance": {
     "rawArchiveFile": "benchmark/archive/pilot_2026-11-12_original_raw.json",
     "rawArchiveSha256": "48cd414f28f7c5110d01af7fa21aab80bdd2a06f3327a46b1207a9448409c9d4",
-    "evaluatorVersion": "v2_audited_strict_denominators",
-    "evaluatorTestsPassed": "28/28 (100%)",
-    "evaluationDate": "2026-11-12T17:36:59.348Z"
+    "evaluatorVersion": "v3_cross_consistency_audited",
+    "evaluatorTestsPassed": "32/32 (100%)",
+    "evaluationDate": "2026-11-12T18:30:38.275Z"
   },
   "environment": {
     "lpuEngine": "Groq LPUs (Language Processing Units)",
@@ -88,12 +88,12 @@
       "proposed6RAG": {
         "csr": 100,
         "csrCount": "12/12",
-        "faithfulness": 100,
-        "faithfulnessCount": "12/12",
+        "faithfulness": 91.7,
+        "faithfulnessCount": "11/12",
         "refusal": 100,
         "refusalCount": "8/8",
-        "financialAccuracy": 100,
-        "financialCount": "2/2",
+        "financialAccuracy": 50,
+        "financialCount": "1/2",
         "latencyMs": 3240.4
       }
     }
@@ -115,6 +115,9 @@
             "refusal": 0,
             "faithfulness": 0,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
               "CSR Fail: Text quotes hallucinated unit prices [7850000, 7200000, 7600000] <= budget 8000000 KZT (not in KERUEN catalog)",
               "Refusal Fail: Must explicitly state no unit matches criteria or budget (mentionsNoMatch: false, claimsMatch: true)",
@@ -131,6 +134,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -144,6 +150,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -163,6 +172,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -175,6 +187,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -191,6 +206,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -210,6 +228,9 @@
             "refusal": 0,
             "faithfulness": 0,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
               "Refusal Fail: Failed to refuse reserved Unit 2V (refusesReserved: false, offered: false)",
               "Faithfulness Fail: Hallucinated external city districts not part of KERUEN complex"
@@ -225,6 +246,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -238,6 +262,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -257,6 +284,9 @@
             "refusal": 0,
             "faithfulness": 0,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
               "CSR Fail: Unit 3B (Sold) actively offered for purchase in text",
               "Refusal Fail: Failed to clearly refuse sold Unit 3B (refusesSold: false, offered: true)",
@@ -275,6 +305,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -288,6 +321,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -307,8 +343,11 @@
             "refusal": null,
             "faithfulness": 0,
             "financialAccuracy": 0,
+            "financialTextAccuracy": 0,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
-              "Faithfulness Fail: Financial numbers did not match ground truth (DP exp: 4124820, found: false; Monthly exp: 267349, found: false)"
+              "Financial Fail: Text financial numbers did not match ground truth (DP exp: 4124820, found: false; Monthly exp: 267349, found: false; Term exp: 36, found: true)"
             ]
           }
         },
@@ -321,6 +360,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": 100,
+            "financialTextAccuracy": 100,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -347,6 +389,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": 100,
+            "financialTextAccuracy": 100,
+            "financialJsonAccuracy": 100,
+            "financialConsistency": 100,
             "notes": []
           }
         }
@@ -366,8 +411,11 @@
             "refusal": null,
             "faithfulness": 0,
             "financialAccuracy": 0,
+            "financialTextAccuracy": 0,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
-              "Faithfulness Fail: Financial numbers did not match ground truth (DP exp: 7800000, found: false; Monthly exp: 487500, found: false)"
+              "Financial Fail: Text financial numbers did not match ground truth (DP exp: 7800000, found: false; Monthly exp: 487500, found: false; Term exp: 24, found: true)"
             ]
           }
         },
@@ -380,6 +428,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": 100,
+            "financialTextAccuracy": 100,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -406,8 +457,11 @@
             "refusal": null,
             "faithfulness": 0,
             "financialAccuracy": 0,
+            "financialTextAccuracy": 0,
+            "financialJsonAccuracy": 0,
+            "financialConsistency": 0,
             "notes": [
-              "Faithfulness Fail: Financial numbers did not match ground truth (DP exp: 7800000, found: true; Monthly exp: 487500, found: false)"
+              "Financial Fail: Text vs JSON cross-consistency mismatch or ground truth failure. (TextPass: false [DP: true, Monthly: false, Term: true], JsonPass: false [DP: 7800000, Monthly: 325000, Tenor: 36], Expected [DP: 7800000, Monthly: 487500, Term: 24])"
             ]
           }
         }
@@ -427,6 +481,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -441,6 +498,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -454,6 +514,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -473,6 +536,9 @@
             "refusal": 0,
             "faithfulness": 0,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
               "CSR Fail: Text quotes hallucinated unit prices [7777123, 7777234, 7777345, 7777456, 7777567] <= budget 20000000 KZT (not in KERUEN catalog)",
               "Refusal Fail: Must explicitly state no unit matches criteria or budget (mentionsNoMatch: false, claimsMatch: false)"
@@ -488,6 +554,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -501,6 +570,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -520,6 +592,9 @@
             "refusal": 0,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
               "Refusal Fail: Failed to clearly refuse sold Unit 3B (refusesSold: false, offered: false)"
             ]
@@ -534,6 +609,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -547,6 +625,9 @@
             "refusal": 0,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
               "Refusal Fail: Failed to clearly refuse sold Unit 3B (refusesSold: false, offered: false)"
             ]
@@ -568,6 +649,9 @@
             "refusal": 0,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
               "Refusal Fail: Must explicitly state no unit matches criteria or budget (mentionsNoMatch: false, claimsMatch: false)"
             ]
@@ -582,6 +666,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -595,6 +682,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -614,6 +704,9 @@
             "refusal": 0,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
               "Refusal Fail: Failed to politely decline out-of-scope query (declined: false, slop: true)"
             ]
@@ -628,6 +721,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -641,6 +737,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -660,6 +759,9 @@
             "refusal": 0,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
               "Refusal Fail: Failed to politely decline out-of-scope query (declined: false, slop: true)"
             ]
@@ -674,6 +776,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -687,6 +792,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -708,6 +816,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -722,6 +833,9 @@
             "refusal": 0,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
               "CSR Fail: Recommended unit 1B (Price: 12000000 KZT) exceeds budget 8000000 KZT",
               "CSR Fail: Budget 8000000 KZT has 0 matching units, but recommendedUnits has: [1B]",
@@ -739,6 +853,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -758,6 +875,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -770,6 +890,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -786,6 +909,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -805,6 +931,9 @@
             "refusal": 0,
             "faithfulness": 0,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
               "Refusal Fail: Failed to refuse reserved Unit 2V (refusesReserved: false, offered: false)",
               "Faithfulness Fail: Hallucinated external city districts not part of KERUEN complex"
@@ -820,6 +949,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -833,6 +965,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -852,6 +987,9 @@
             "refusal": 0,
             "faithfulness": 0,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
               "CSR Fail: Unit 3B (Sold) actively offered for purchase in text",
               "Refusal Fail: Failed to clearly refuse sold Unit 3B (refusesSold: false, offered: true)",
@@ -870,6 +1008,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -883,6 +1024,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -902,8 +1046,11 @@
             "refusal": null,
             "faithfulness": 0,
             "financialAccuracy": 0,
+            "financialTextAccuracy": 0,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
-              "Faithfulness Fail: Financial numbers did not match ground truth (DP exp: 4124820, found: false; Monthly exp: 267349, found: false)"
+              "Financial Fail: Text financial numbers did not match ground truth (DP exp: 4124820, found: false; Monthly exp: 267349, found: false; Term exp: 36, found: true)"
             ]
           }
         },
@@ -916,6 +1063,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": 100,
+            "financialTextAccuracy": 100,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -942,6 +1092,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": 100,
+            "financialTextAccuracy": 100,
+            "financialJsonAccuracy": 100,
+            "financialConsistency": 100,
             "notes": []
           }
         }
@@ -961,8 +1114,11 @@
             "refusal": null,
             "faithfulness": 0,
             "financialAccuracy": 0,
+            "financialTextAccuracy": 0,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
-              "Faithfulness Fail: Financial numbers did not match ground truth (DP exp: 7800000, found: false; Monthly exp: 487500, found: false)"
+              "Financial Fail: Text financial numbers did not match ground truth (DP exp: 7800000, found: false; Monthly exp: 487500, found: false; Term exp: 24, found: true)"
             ]
           }
         },
@@ -977,6 +1133,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": 100,
+            "financialTextAccuracy": 100,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -999,9 +1158,14 @@
           "eval": {
             "csr": 100,
             "refusal": null,
-            "faithfulness": 100,
-            "financialAccuracy": 100,
-            "notes": []
+            "faithfulness": 0,
+            "financialAccuracy": 0,
+            "financialTextAccuracy": 100,
+            "financialJsonAccuracy": 0,
+            "financialConsistency": 0,
+            "notes": [
+              "Financial Fail: Text vs JSON cross-consistency mismatch or ground truth failure. (TextPass: true [DP: true, Monthly: true, Term: true], JsonPass: false [DP: 7800000, Monthly: 325000, Tenor: 36], Expected [DP: 7800000, Monthly: 487500, Term: 24])"
+            ]
           }
         }
       },
@@ -1020,6 +1184,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -1034,6 +1201,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -1060,6 +1230,9 @@
             "refusal": null,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -1079,6 +1252,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -1091,6 +1267,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -1104,6 +1283,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -1123,6 +1305,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -1135,6 +1320,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -1148,6 +1336,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -1167,6 +1358,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -1181,6 +1375,9 @@
             "refusal": 0,
             "faithfulness": 0,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
               "CSR Fail: Recommended unit 1B (Price: 12000000 KZT) exceeds budget 8000000 KZT",
               "CSR Fail: Budget 8000000 KZT has 0 matching units, but recommendedUnits has: [1B]",
@@ -1200,6 +1397,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -1219,6 +1419,9 @@
             "refusal": 0,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": [
               "Refusal Fail: Failed to politely decline out-of-scope query (declined: false, slop: true)"
             ]
@@ -1233,6 +1436,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -1246,6 +1452,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }
@@ -1265,6 +1474,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -1277,6 +1489,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         },
@@ -1290,6 +1505,9 @@
             "refusal": 100,
             "faithfulness": 100,
             "financialAccuracy": null,
+            "financialTextAccuracy": null,
+            "financialJsonAccuracy": null,
+            "financialConsistency": null,
             "notes": []
           }
         }

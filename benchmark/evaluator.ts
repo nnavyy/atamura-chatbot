@@ -62,7 +62,10 @@ export interface EvalScore {
   csr: number; // 0 or 100
   refusal: number | null; // 0 or 100, or null (N/A for normal matching queries)
   faithfulness: number; // 0 or 100
-  financialAccuracy: number | null; // 0 or 100, or null (N/A for non-financial queries)
+  financialAccuracy: number | null; // 0 or 100, or null (End-User Financial Accuracy: requires both text & JSON consistency)
+  financialTextAccuracy?: number | null; // 0 or 100, or null
+  financialJsonAccuracy?: number | null; // 0 or 100, or null
+  financialConsistency?: number | null; // 0 or 100, or null
   notes: string[];
 }
 
@@ -550,37 +553,75 @@ export function evaluateResponse(
   // 3. Faithfulness (Factual Grounding / Anti-Hallucination)
   // =========================================================================
   let financialAccuracy: number | null = null;
+  let financialTextAccuracy: number | null = null;
+  let financialJsonAccuracy: number | null = null;
+  let financialConsistency: number | null = null;
 
   // Check 3.1: Financial Calculation Correctness (F-01, F-07)
+  // Audited for Temuan Kritis B1: Verifies Text Accuracy, JSON Accuracy, AND Cross-Consistency
   if (tc.category === 'finance' && tc.groundTruth.calculation) {
     const gt = tc.groundTruth.calculation;
     const dpExpected = gt.downPaymentKzt;
     const monthlyExpected = gt.monthlyKzt;
+    const termExpected = gt.termMonths;
 
-    let foundDP = false;
-    let foundMonthly = false;
+    // A. Evaluate Text Accuracy
+    const extractedNums = extractNumbers(textNorm);
+    const textHasDP = hasNumberNear(extractedNums, dpExpected, 0.02);
+    const textHasMonthly = hasNumberNear(extractedNums, monthlyExpected, 0.02);
+    let textHasTerm = true;
+    if (termExpected) {
+      const termRegex = new RegExp(`\\b${termExpected}\\s*(?:ай|айлық|мес|месяц|месяцев|months?)\\b|\\b${termExpected}\\b`, 'i');
+      textHasTerm = termRegex.test(textNorm);
+    }
+    const textPass = textHasDP && textHasMonthly && textHasTerm;
+    financialTextAccuracy = textPass ? 100 : 0;
 
-    // A. Check structured calculation
-    if (response.calculation) {
+    // B. Evaluate JSON Structured Calculation Accuracy (if present)
+    let jsonPass: boolean | null = null;
+    if (response.calculation && typeof response.calculation === 'object') {
       const calcDP = response.calculation.dp;
       const calcMonthly = response.calculation.monthly;
-      if (calcDP && Math.abs(calcDP - dpExpected) / dpExpected <= 0.02) foundDP = true;
-      if (calcMonthly && Math.abs(calcMonthly - monthlyExpected) / monthlyExpected <= 0.02) foundMonthly = true;
+      const calcTenor = response.calculation.tenor;
+
+      const jsonDPOk = Boolean(calcDP && Math.abs(calcDP - dpExpected) / dpExpected <= 0.02);
+      const jsonMonthlyOk = Boolean(calcMonthly && Math.abs(calcMonthly - monthlyExpected) / monthlyExpected <= 0.02);
+      let jsonTenorOk = true;
+      if (termExpected) {
+        jsonTenorOk = Boolean(calcTenor && calcTenor === termExpected);
+      }
+
+      jsonPass = jsonDPOk && jsonMonthlyOk && jsonTenorOk;
+      financialJsonAccuracy = jsonPass ? 100 : 0;
+    } else {
+      financialJsonAccuracy = null;
     }
 
-    // B. Check extracted numbers from text
-    const extractedNums = extractNumbers(textNorm);
-    if (hasNumberNear(extractedNums, dpExpected, 0.02)) foundDP = true;
-    if (hasNumberNear(extractedNums, monthlyExpected, 0.02)) foundMonthly = true;
+    // C. Evaluate Cross-Consistency & End-User Financial Accuracy
+    if (jsonPass !== null) {
+      // System provided structured JSON (Proposed RAG)
+      // Both text and JSON must be accurate and agree with ground truth
+      const isConsistent = textPass && jsonPass;
+      financialConsistency = isConsistent ? 100 : 0;
+      financialAccuracy = isConsistent ? 100 : 0;
 
-    if (!foundDP || !foundMonthly) {
-      faithfulnessPass = false;
-      notes.push(
-        `Faithfulness Fail: Financial numbers did not match ground truth (DP exp: ${dpExpected}, found: ${foundDP}; Monthly exp: ${monthlyExpected}, found: ${foundMonthly})`
-      );
+      if (!isConsistent) {
+        faithfulnessPass = false;
+        notes.push(
+          `Financial Fail: Text vs JSON cross-consistency mismatch or ground truth failure. (TextPass: ${textPass} [DP: ${textHasDP}, Monthly: ${textHasMonthly}, Term: ${textHasTerm}], JsonPass: ${jsonPass} [DP: ${response.calculation?.dp}, Monthly: ${response.calculation?.monthly}, Tenor: ${response.calculation?.tenor}], Expected [DP: ${dpExpected}, Monthly: ${monthlyExpected}, Term: ${termExpected}])`
+        );
+      }
+    } else {
+      // System provided text only (Zero-Shot / Naive RAG)
+      financialConsistency = null;
+      financialAccuracy = textPass ? 100 : 0;
+      if (!textPass) {
+        faithfulnessPass = false;
+        notes.push(
+          `Financial Fail: Text financial numbers did not match ground truth (DP exp: ${dpExpected}, found: ${textHasDP}; Monthly exp: ${monthlyExpected}, found: ${textHasMonthly}; Term exp: ${termExpected}, found: ${textHasTerm})`
+        );
+      }
     }
-
-    financialAccuracy = faithfulnessPass ? 100 : 0;
   }
 
   // Check 3.2: Factual Price & Existence Grounding (B-01, A-03)
@@ -645,6 +686,9 @@ export function evaluateResponse(
     refusal: refusalScore,
     faithfulness: faithfulnessPass ? 100 : 0,
     financialAccuracy,
+    financialTextAccuracy,
+    financialJsonAccuracy,
+    financialConsistency,
     notes,
   };
 }

@@ -283,6 +283,81 @@ const testSuites: TestCaseRunner[] = [
       financialAccuracy: 0,
     },
   },
+  {
+    name: '15B. F-07-KK [Fail B1 Cross-Consistency]: Text has 24m & 487,500 ₸, but JSON calculation has tenor: 36 & monthly: 325,000',
+    caseId: 'F-07-KK',
+    response: {
+      text: '2B пәтері үшін 40% жарна (7 800 000 ₸) және 0% пайызбен 24 айлық төлем жоспары: ай сайынғы төлем 487 500 ₸, жалпы сома 19 500 000 ₸.',
+      calculation: {
+        unitCode: '2B',
+        method: 'installment',
+        price: 19500000,
+        dp: 7800000,
+        dpPercent: 40,
+        monthly: 325000,
+        total: 19500000,
+        tenor: 36,
+        interestRate: 0,
+        savings: 0,
+      },
+    },
+    expected: {
+      csr: 100,
+      refusal: null,
+      faithfulness: 0,
+      financialAccuracy: 0,
+    },
+  },
+  {
+    name: '15C. F-07-KK [Fail B1 Text Conflict]: JSON has 24m & 487,500 ₸, but text claims 36m & 325,000 ₸',
+    caseId: 'F-07-KK',
+    response: {
+      text: '2B пәтері үшін бөліп төлеу мерзімі 36 айға дейін ұсынылады, ай сайынғы төлем 325 000 ₸.',
+      calculation: {
+        unitCode: '2B',
+        method: 'installment',
+        price: 19500000,
+        dp: 7800000,
+        dpPercent: 40,
+        monthly: 487500,
+        total: 19500000,
+        tenor: 24,
+        interestRate: 0,
+      },
+    },
+    expected: {
+      csr: 100,
+      refusal: null,
+      faithfulness: 0,
+      financialAccuracy: 0,
+    },
+  },
+  {
+    name: '15D. F-01-RU [Pass Text-Only]: Naive RAG without JSON object correctly stating 30% DP and 36m monthly in text',
+    caseId: 'F-01-RU',
+    response: {
+      text: 'Для квартиры 1A (13 749 400 ₸) первоначальный взнос 30% составляет 4 124 820 ₸, ежемесячный платеж на 36 месяцев — 267 349 ₸.',
+    },
+    expected: {
+      csr: 100,
+      refusal: null,
+      faithfulness: 100,
+      financialAccuracy: 100,
+    },
+  },
+  {
+    name: '15E. F-01-RU [Fail Text Conflict]: Text contains conflicting monthly numbers (267 349 ₸ vs 350 000 ₸)',
+    caseId: 'F-01-RU',
+    response: {
+      text: 'Для квартиры 1A (13 749 400 ₸) первоначальный взнос 30% составляет 4 124 820 ₸, ежемесячный платеж 350 000 ₸.',
+    },
+    expected: {
+      csr: 100,
+      refusal: null,
+      faithfulness: 0,
+      financialAccuracy: 0,
+    },
+  },
 
   // -------------------------------------------------------------------------
   // Group 4: Multi-Constraint Queries (M-01-EN, M-02-RU)
