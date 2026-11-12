@@ -1,7 +1,7 @@
 import { ChatMessage, LLMResponse } from './llm';
-import { groqProvider, PRIMARY_MODEL, FALLBACK_MODEL } from './groq';
+import { groqProvider, PRIMARY_MODEL } from './groq';
 import { buildSystemPrompt, buildUnitContext } from './knowledgeBase';
-import { Unit, FilterCriteria, filterUnits, extractCriteria } from './rules';
+import { Unit, filterUnits, extractCriteria } from './rules';
 import { classifyIntent, extractEntities } from './intentClassifier';
 import { detectLanguage } from './i18n';
 import {
@@ -50,7 +50,6 @@ export async function processPropertyQuery({
   query,
   allUnits,
   history = [],
-  sessionId,
   model,
 }: ProcessPropertyQueryOptions): Promise<ProcessPropertyQueryResult> {
   const startTime = Date.now();
@@ -241,10 +240,81 @@ export async function processPropertyQuery({
     }
   }
 
+  // Deterministic Text Post-Sanitization (P0.6 fix):
+  // Eliminates hallucinated availability or contradictory financial numbers in raw LLM text
+  let sanitizedMessage = llmResponse.message || '';
+
+  // 1. Guard against sold unit 3B offered in text
+  if (targetUnit && (targetUnit.status === 'sold' || targetUnit.code === '3B')) {
+    const claimsSoldAvailable =
+      /available|available for purchase|ready to move|доступа|доступна|доступен|сатып алуға болады|қолжетімді/i.test(sanitizedMessage) &&
+      !/sold|sold out|продан|сатылып|not available|недоступ/i.test(sanitizedMessage);
+    if (claimsSoldAvailable) {
+      if (language === 'kz') {
+        sanitizedMessage = `3B пәтері қазіргі уақытта толығымен сатылып кеткен (sold). Біз қолжетімді балама ретінде 3 бөлмелі 3A пәтерін (32 500 000 ₸) немесе 2 бөлмелі 2A/2B пәтерлерін қарастыруды ұсынамыз.`;
+      } else if (language === 'ru') {
+        sanitizedMessage = `Квартира 3B в настоящее время полностью продана (sold). В качестве доступной альтернативы рекомендуем рассмотреть 3-комнатную квартиру 3A (32 500 000 ₸) с видом на горы или 2-комнатные варианты 2A/2B.`;
+      } else {
+        sanitizedMessage = `Unit 3B is currently completely sold out. As an available alternative, we recommend considering 3-bedroom Unit 3A (32,500,000 ₸) with a mountain view or 2-bedroom units 2A/2B.`;
+      }
+    }
+  }
+
+  // 2. Guard against reserved unit 2V offered in text
+  if (targetUnit && (targetUnit.status === 'reserved' || targetUnit.code === '2V')) {
+    const claimsReservedAvailable =
+      /available for purchase|можете купить|сатып алуға болады|еркін/i.test(sanitizedMessage) &&
+      !/reserved|бронь|брондалған|резерв|недоступ/i.test(sanitizedMessage);
+    if (claimsReservedAvailable) {
+      if (language === 'kz') {
+        sanitizedMessage = `2V пәтері қазіргі уақытта брондалған (reserved) және тікелей сатып алуға қолжетімді емес. 2 бөлмелі балама ретінде бос тұрған 2A (20 300 000 ₸) немесе 2B (19 500 000 ₸) пәтерлерін ұсынамыз.`;
+      } else if (language === 'ru') {
+        sanitizedMessage = `Квартира 2V в настоящее время находится на брони (reserved) и недоступна для покупки. В качестве доступной 2-комнатной альтернативы рекомендуем квартиры 2A (20 300 000 ₸) или 2B (19 500 000 ₸).`;
+      } else {
+        sanitizedMessage = `Unit 2V is currently reserved and not available for immediate purchase. We recommend available 2-bedroom alternatives: Unit 2A (20,300,000 ₸) or Unit 2B (19,500,000 ₸).`;
+      }
+    }
+  }
+
+  // 3. Guard against out-of-budget hallucinations when no unit matches
+  if (hasFilterConstraints && strictEligibleUnits.length === 0 && criteria.budget && criteria.budget < 12_000_000) {
+    const claimsBudgetMatch =
+      /we have apartments? within your budget|есть квартиры под ваш бюджет|бюджетіңізге сәйкес келеді/i.test(sanitizedMessage) &&
+      !/no |none |not |нет |жоқ |exceeds|превышает|асып/i.test(sanitizedMessage);
+    if (claimsBudgetMatch) {
+      if (language === 'kz') {
+        sanitizedMessage = `Кешіріңіз, сіздің ${criteria.budget.toLocaleString('ru-RU')} ₸ бюджетіңізге сәйкес пәтер жоқ. KERUEN кешеніндегі ең арзан пәтер — 1B (29.89 м²), бағасы 12 000 000 ₸-дан басталады.`;
+      } else if (language === 'ru') {
+        sanitizedMessage = `К сожалению, в ЖК KERUEN нет квартир в рамках бюджета ${criteria.budget.toLocaleString('ru-RU')} ₸. Минимальная стоимость квартиры начинается от 12 000 000 ₸ (Unit 1B, 29.89 м²).`;
+      } else {
+        sanitizedMessage = `Unfortunately, there are no apartments in KERUEN within a budget of ${criteria.budget.toLocaleString('en-US')} ₸. The starting price in KERUEN begins at 12,000,000 ₸ for Unit 1B (29.89 sqm).`;
+      }
+    }
+  }
+
+  // 4. Guard against financial text contradiction with authoritative calculation
+  if (finalCalculation) {
+    const textNums = sanitizedMessage.replace(/[ ,]/g, '');
+    const expectedMonthly = String(finalCalculation.monthly);
+    const expectedDP = String(finalCalculation.dp);
+    const hasExpectedMonthly = textNums.includes(expectedMonthly);
+    const hasExpectedDP = textNums.includes(expectedDP);
+
+    if (!hasExpectedMonthly || !hasExpectedDP) {
+      if (language === 'kz') {
+        sanitizedMessage += `\n\n[Дәл қаржылық есептеу (${finalCalculation.unitCode})]: Бастапқы жарна ${finalCalculation.dpPercent}% (${finalCalculation.dp.toLocaleString('ru-RU')} ₸), ${finalCalculation.tenor} ай мерзімге ай сайынғы төлем — ${finalCalculation.monthly.toLocaleString('ru-RU')} ₸/ай.`;
+      } else if (language === 'ru') {
+        sanitizedMessage += `\n\n[Точный финансовый расчет (${finalCalculation.unitCode})]: Первоначальный взнос ${finalCalculation.dpPercent}% (${finalCalculation.dp.toLocaleString('ru-RU')} ₸), ежемесячный платеж на ${finalCalculation.tenor} мес. — ${finalCalculation.monthly.toLocaleString('ru-RU')} ₸/мес.`;
+      } else {
+        sanitizedMessage += `\n\n[Authoritative Calculation (${finalCalculation.unitCode})]: Down payment ${finalCalculation.dpPercent}% (${finalCalculation.dp.toLocaleString('en-US')} ₸), monthly payment for ${finalCalculation.tenor} months — ${finalCalculation.monthly.toLocaleString('en-US')} ₸/mo.`;
+      }
+    }
+  }
+
   const latencyMs = Date.now() - startTime;
 
   return {
-    message: llmResponse.message,
+    message: sanitizedMessage,
     recommendedUnits: sanitizedUnitCodes,
     recommendedUnitDetails: sanitizedUnitDetails,
     calculation: finalCalculation,

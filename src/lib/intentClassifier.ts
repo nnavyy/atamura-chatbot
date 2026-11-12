@@ -52,6 +52,7 @@ const intentPatterns: { intent: Intent; patterns: RegExp[] }[] = [
     patterns: [
       /book|reserve|бронирова|купить|buy|сатып\s*алу|брондау/i,
       /contact|связаться|байланыс/i,
+      /бос\s*па|свободн[а-я]*|available|бос\s*тұр/i,
     ],
   },
 ];
@@ -202,6 +203,12 @@ export function extractEntities(message: string): Record<string, unknown> {
   if (!entities.custom_tenor && yearTenorMatch) {
     const years = parseInt(yearTenorMatch[1]);
     if (years >= 1 && years <= 30) entities.custom_tenor = years * 12;
+  }
+
+  // 6. Contact / Phone Number extraction
+  const phoneMatch = message.match(/(?:\+?7|8)[\s-]?(?:\(?\d{3}\)?[\s-]?)?\d{3}[\s-]?\d{2}[\s-]?\d{2}/);
+  if (phoneMatch) {
+    entities.phone = phoneMatch[0].trim();
   }
 
   return entities;

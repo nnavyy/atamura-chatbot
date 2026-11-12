@@ -64,6 +64,7 @@ export default function ChatWidget() {
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMessages([{
         role: 'assistant',
         content: t('chat.welcome', lang),
