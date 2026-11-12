@@ -126,12 +126,18 @@ export function formatTenge(amount: number): string {
 }
 
 /**
- * Get all payment options for a unit
+ * Get all payment options for a unit with optional custom DP and tenor
  */
-export function getAllPaymentOptions(price: number, unitCode: string) {
+export function getAllPaymentOptions(
+  price: number,
+  unitCode: string,
+  customDP?: number,
+  customTenor?: number,
+  customRate?: number
+) {
   return {
     full: calcFullPayment(price, unitCode),
-    installment: calcInstallment(price, unitCode),
-    mortgage: calcMortgage(price, unitCode),
+    installment: calcInstallment(price, unitCode, customDP ?? 30, customTenor ?? 36),
+    mortgage: calcMortgage(price, unitCode, customDP ?? 20, customRate ?? 17, customTenor ?? 240),
   };
 }

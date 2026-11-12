@@ -27,14 +27,16 @@ interface FilterCriteria {
  * Runs BEFORE sending to Gemini to narrow down relevant units
  */
 export function filterUnits(units: Unit[], criteria: FilterCriteria): Unit[] {
-  let filtered = units.filter((u) => u.status !== 'sold');
+  // 1. Strict Availability: Only 'available' units can be recommended for direct purchase
+  // Units with status 'reserved' (e.g. 2V) and 'sold' (e.g. 3B) are strictly excluded from candidates
+  let filtered = units.filter((u) => u.status === 'available');
 
-  // Budget filter
+  // 2. Strict Budget Constraint: Unit price must be <= user's maximum budget
   if (criteria.budget) {
-    filtered = filtered.filter((u) => u.priceMin <= criteria.budget! * 1.2); // 20% tolerance
+    filtered = filtered.filter((u) => u.priceMin <= criteria.budget!);
   }
 
-  // Room filter
+  // 3. Room filter
   if (criteria.rooms) {
     filtered = filtered.filter((u) => u.rooms === criteria.rooms);
   }

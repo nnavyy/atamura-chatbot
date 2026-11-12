@@ -1,22 +1,22 @@
 {
   "summary": {
     "zeroShot": {
-      "csr": "66.7",
-      "faithfulness": "100.0",
-      "refusal": "66.7",
-      "latency": "6091.0"
+      "csr": "83.3",
+      "faithfulness": "83.3",
+      "refusal": "50.0",
+      "latency": "2192.0"
     },
     "naiveRAG": {
-      "csr": "66.7",
-      "faithfulness": "100.0",
-      "refusal": "66.7",
-      "latency": "2709.3"
+      "csr": "100.0",
+      "faithfulness": "66.7",
+      "refusal": "50.0",
+      "latency": "1348.5"
     },
     "proposed6RAG": {
-      "csr": "100.0",
+      "csr": "83.3",
       "faithfulness": "100.0",
-      "refusal": "66.7",
-      "latency": "7291.7"
+      "refusal": "83.3",
+      "latency": "40770.2"
     }
   },
   "details": [
@@ -50,8 +50,8 @@
         ]
       },
       "zeroShot": {
-        "text": "Saya tidak dapat merekomendasikan unit apartemen spesifik beserta harganya secara langsung. Sebagai AI, saya tidak memiliki akses real-time ke database properti dan ketersediaan serta harga di pasar real estat sangat dinamis dan dapat berubah dengan cepat.\n\nUntuk menemukan unit yang sesuai dengan budget maksimal 15 juta Tenge, saya sangat menyarankan Anda untuk:\n\n1.  **Mengunjungi situs web properti lokal terkemuka di Kazakhstan:** Seperti **Krisha.kz**. Ini adalah platform properti utama di Kazakhstan. Anda dapat menggunakan filter pencarian untuk menetapkan budget maksimal 15.000.000 Tenge dan area yang Anda minati (misalnya, Almaty, Astana, dll.).\n2.  **Menghubungi agen properti lokal:** Mereka memiliki informasi terkini mengenai listing yang tersedia dan dapat membantu Anda menemukan pilihan yang cocok sesuai kriteria Anda.\n\nDengan budget 15 juta Tenge, Anda kemungkinan besar dapat menemukan apartemen studio atau 1 kamar tidur di kota-kota besar, atau apartemen 2 kamar tidur di area pinggiran kota atau kota-kota yang lebih kecil, tergantung pada kondisi dan lokasi bangunan.",
-        "latencyMs": 9930,
+        "text": "Dengan budget maksimal 15 juta Tenge, Anda memiliki beberapa pilihan, namun perlu diingat bahwa sebagai AI, saya tidak memiliki akses real-time ke daftar properti spesifik yang sedang dijual. Oleh karena itu, saya tidak bisa merekomendasikan unit *exact* dengan harga pasti.\n\nNamun, secara umum, dengan budget 15 juta Tenge di Kazakhstan, Anda *biasanya* bisa mencari:\n\n*   **Di kota-kota besar (Almaty, Astana):**\n    *   **Apartemen studio atau 1 kamar tidur kecil:** Terutama di lokasi yang sedikit di luar pusat kota atau di bangunan yang lebih tua. Harga untuk unit semacam ini seringkali berkisar antara 12 juta hingga 18 juta Tenge, tergantung kondisi, lokasi persis, dan usia bangunan.\n    *   **Contoh kisaran harga:** Sebuah studio 25-35 m² di distrik yang tidak terlalu sentral bisa ditemukan dalam kisaran ini.\n\n*   **Di kota-kota yang lebih kecil atau pinggiran kota besar:**\n    *   **Apartemen 1 atau bahkan 2 kamar tidur:** Anda mungkin bisa mendapatkan unit yang lebih besar atau di lokasi yang lebih baik dibandingkan di kota-kota besar.\n\n**Saran untuk pencarian Anda:**\n\n1.  **Tentukan lokasi spesifik:** Kota dan area mana yang Anda minati? Ini sangat mempengaruhi harga.\n2.  **Gunakan portal properti online:** Situs seperti Krisha.kz (sangat populer di Kazakhstan) akan menjadi sumber terbaik untuk melihat daftar unit yang tersedia secara real-time. Anda bisa menyaring berdasarkan harga dan lokasi.\n3.  **Hubungi agen real estat lokal:** Mereka memiliki akses ke database properti dan bisa membantu menemukan unit yang sesuai dengan budget dan kriteria Anda.\n\nSemoga informasi ini membantu dalam pencarian Anda!",
+        "latencyMs": 9323,
         "eval": {
           "csr": 100,
           "refusal": 100,
@@ -59,21 +59,21 @@
         }
       },
       "naiveRAG": {
-        "text": "Tentu, saya bisa bantu! Berdasarkan budget maksimal 15 juta KZT (Tenge) yang Anda miliki, berikut adalah unit-unit yang tersedia dan cocok untuk Anda:\n\n*   **Unit 1A:** Tipe 1BR, Luas 37.85 sqm, Harga **13.749.400 KZT**. Menghadap Courtyard.\n*   **Unit 1B:** Tipe 1BR, Luas 29.89 sqm, Harga **12.000.000 KZT**. Menghadap Courtyard.\n*   **Unit 1V:** Tipe 1BR, Luas 45.66 sqm, Harga **15.500.000 KZT**. Menghadap Mountain.\n\nSemoga rekomendasi ini membantu Anda menemukan unit yang tepat di Atamura KERUEN!",
-        "latencyMs": 2591,
+        "text": "Tentu, saya akan bantu Anda menemukan apartemen yang cocok dengan budget maksimal 15 juta KZT.\n\nBerdasarkan kriteria Anda, berikut adalah unit yang tersedia dan sesuai dengan anggaran Anda:\n\n*   **Unit 1A**: Tipe 1BR, Luas 37.85 sqm, **Harga 13,749,400 KZT**, View: Courtyard\n*   **Unit 1B**: Tipe 1BR, Luas 29.89 sqm, **Harga 12,000,000 KZT**, View: Courtyard\n*   **Unit 1V**: Tipe 1BR, Luas 45.66 sqm, **Harga 15,500,000 KZT**, View: Mountain\n\nSemua unit ini tersedia dan berada dalam kisaran budget Anda. Unit 1V sedikit di atas 15 juta tapi mungkin masih bisa dipertimbangkan jika Anda tertarik dengan pemandangan gunung.",
+        "latencyMs": 2689,
         "eval": {
           "csr": 100,
           "refusal": 100,
-          "faithfulness": 100
+          "faithfulness": 0
         }
       },
       "proposed6RAG": {
-        "text": "Halo! Selamat datang di Atamura Group. Saya Atamura AI Assistant, Property Consultant Anda.\n\nBerdasarkan anggaran maksimal Anda sebesar 15.000.000 ₸, saya memiliki beberapa pilihan apartemen 1 kamar tidur (1BR) di kompleks perumahan KERUEN yang mungkin cocok untuk Anda:\n\n*   **Unit 1A (1BR)**: Luas 37.85 m², harga mulai dari **13.749.400 ₸**. Unit ini memiliki balkon, dapur-ruang tamu, dan kamar mandi. Tersedia di lantai 2-5 dengan pemandangan halaman.\n*   **Unit 1B (1BR)**: Luas 29.89 m², harga mulai dari **12.000.000 ₸**. Unit ini memiliki tata letak yang ringkas, kamar mandi, dan dapur-ruang tamu. Tersedia di lantai 2-5 dengan pemandangan halaman.\n\nApakah Anda mencari apartemen dengan 1 kamar tidur, atau apakah Anda terbuka untuk pilihan lain jika anggarannya sedikit lebih tinggi?",
+        "text": "Selamat siang! Atamura AI Assistant siap membantu Anda menemukan apartemen impian di KERUEN.\n\nBerdasarkan anggaran maksimal 15.000.000 ₸ yang Anda sebutkan, kami memiliki beberapa pilihan unit 1 kamar tidur yang sangat menarik di kompleks perumahan KERUEN:\n\n1.  **Unit 1A (1 Kamar Tidur):**\n    *   Luas: 37.85 m²\n    *   Harga mulai dari: 13.749.400 ₸\n    *   Pemandangan: Halaman (Courtyard)\n    *   Fitur: Balkon, Dapur-ruang tamu, Kamar mandi\n2.  **Unit 1B (1 Kamar Tidur):**\n    *   Luas: 29.89 m²\n    *   Harga mulai dari: 12.000.000 ₸\n    *   Pemandangan: Halaman (Courtyard)\n    *   Fitur: Tata letak kompak, Kamar mandi, Dapur-ruang tamu\n\nKedua unit ini tersedia dan berada dalam kisaran anggaran Anda. Unit 1A menawarkan ruang yang sedikit lebih luas, sementara Unit 1B adalah pilihan yang lebih kompak dan ekonomis.\n\nApakah Anda mencari unit dengan jumlah kamar tertentu, atau apakah Anda tertarik untuk mengetahui lebih lanjut tentang tata letak atau fasilitas salah satu unit ini?",
         "recommendedUnits": [
           "1A",
           "1B"
         ],
-        "latencyMs": 6358,
+        "latencyMs": 5958,
         "eval": {
           "csr": 100,
           "refusal": 100,
@@ -92,8 +92,8 @@
         ]
       },
       "zeroShot": {
-        "text": "Sebagai AI, saya tidak memiliki informasi *real-time* mengenai ketersediaan unit properti. Untuk mengetahui apakah Unit 3B (3 kamar tidur) masih tersedia untuk dipesan sekarang, Anda perlu:\n\n*   **Menghubungi agen properti** yang Anda ajak bicara sebelumnya.\n*   **Menghubungi pengembang langsung.**\n*   **Mengecek situs web resmi** mereka atau portal properti di mana Anda menemukan unit tersebut.\n\nMereka akan dapat memberikan informasi paling akurat dan terkini.",
-        "latencyMs": 2990,
+        "text": "Sebagai AI, saya tidak memiliki akses ke informasi ketersediaan unit real-time. Untuk mengetahui apakah Unit 3B (3 kamar tidur) masih tersedia dan bisa dipesan, Anda harus menghubungi **agen properti, developer, atau kantor penjualan properti tersebut secara langsung.** Mereka adalah pihak yang memiliki informasi terkini.",
+        "latencyMs": 2145,
         "eval": {
           "csr": 0,
           "refusal": 0,
@@ -101,21 +101,23 @@
         }
       },
       "naiveRAG": {
-        "text": "Mohon maaf, Unit 3B (3 kamar tidur) sudah **sold** atau terjual. Unit tersebut tidak lagi tersedia untuk dipesan.\n\nNamun, kami masih memiliki Unit 3A yang juga merupakan tipe 3 kamar tidur dengan luas 77.6 sqm dan pemandangan Mountain, serta berstatus available. Apakah Anda ingin mengetahui lebih lanjut tentang Unit 3A atau unit lainnya?",
-        "latencyMs": 1698,
+        "text": "Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [429 Too Many Requests] You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash, description: Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\nPlease retry in 20h44m42.423142279s. [{\"@type\":\"type.googleapis.com/google.rpc.Help\",\"links\":[{\"description\":\"Learn more about Gemini API quotas\",\"url\":\"https://aistudio.google.com/docs/rate-limits\"}]},{\"@type\":\"type.googleapis.com/google.rpc.QuotaFailure\",\"violations\":[{\"description\":\"Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\",\"quotaMetric\":\"generativelanguage.googleapis.com/generate_content_free_tier_requests\",\"quotaId\":\"GenerateRequestsPerDayPerProjectPerModel-FreeTier\",\"quotaDimensions\":{\"location\":\"global\",\"model\":\"gemini-2.5-flash\"},\"quotaValue\":\"20\"}]},{\"@type\":\"type.googleapis.com/google.rpc.RetryInfo\",\"retryDelay\":\"74682s\"}]",
+        "latencyMs": 440,
         "eval": {
-          "csr": 0,
+          "csr": 100,
           "refusal": 0,
           "faithfulness": 100
         }
       },
       "proposed6RAG": {
-        "text": "I apologize, but I only speak English, Russian (Русский), and Kazakh (Қазақша). Could you please rephrase your question in one of these languages? I would be happy to help you find your perfect apartment at KERUEN.",
-        "recommendedUnits": [],
-        "latencyMs": 9689,
+        "text": "Halo! Terima kasih atas minat Anda pada Atamura Group dan kompleks hunian KERUEN kami yang premium.\n\nMengenai Unit 3B dengan 3 kamar tidur yang Anda tanyakan, saya mohon maaf untuk memberitahukan bahwa unit tersebut saat ini sudah *terjual*.\n\nNamun, saya sangat senang untuk merekomendasikan **Unit 3A** yang juga memiliki 3 kamar tidur dan saat ini masih tersedia untuk Anda. Unit 3A memiliki luas 77.6 m² dengan harga mulai dari **32.500.000 ₸**. Unit ini menawarkan pemandangan pegunungan dari lantai 2-5 dan dilengkapi dengan 3 kamar tidur, ruang tamu yang luas, 2 balkon, serta kamar mandi terpisah.\n\nApakah Unit 3A ini sesuai dengan kriteria yang Anda cari, atau apakah Anda ingin mencari opsi lain?",
+        "recommendedUnits": [
+          "3A"
+        ],
+        "latencyMs": 53359,
         "eval": {
           "csr": 100,
-          "refusal": 0,
+          "refusal": 100,
           "faithfulness": 100
         }
       }
@@ -133,8 +135,8 @@
         ]
       },
       "zeroShot": {
-        "text": "Berikut simulasinya:\n\n1.  **Harga Unit:** 13.749.400 Tenge\n2.  **DP 30%:** 0.30 * 13.749.400 Tenge = **4.124.820 Tenge**\n3.  **Sisa yang dicicil:** 13.749.400 Tenge - 4.124.820 Tenge = **9.624.580 Tenge**\n4.  **Cicilan per bulan (36 bulan):** 9.624.580 Tenge / 36 bulan = **267.349,44 Tenge**\n\nJadi, simulasi cicilan Anda adalah **267.349,44 Tenge per bulan** selama 36 bulan setelah membayar DP sebesar 4.124.820 Tenge.",
-        "latencyMs": 5353,
+        "text": "Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [429 Too Many Requests] You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash, description: Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\nPlease retry in 20h43m22.621041747s. [{\"@type\":\"type.googleapis.com/google.rpc.Help\",\"links\":[{\"description\":\"Learn more about Gemini API quotas\",\"url\":\"https://aistudio.google.com/docs/rate-limits\"}]},{\"@type\":\"type.googleapis.com/google.rpc.QuotaFailure\",\"violations\":[{\"description\":\"Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\",\"quotaMetric\":\"generativelanguage.googleapis.com/generate_content_free_tier_requests\",\"quotaId\":\"GenerateRequestsPerDayPerProjectPerModel-FreeTier\",\"quotaDimensions\":{\"model\":\"gemini-2.5-flash\",\"location\":\"global\"},\"quotaValue\":\"20\"}]},{\"@type\":\"type.googleapis.com/google.rpc.RetryInfo\",\"retryDelay\":\"74602s\"}]",
+        "latencyMs": 427,
         "eval": {
           "csr": 100,
           "refusal": 100,
@@ -142,8 +144,8 @@
         }
       },
       "naiveRAG": {
-        "text": "Tentu, mari kita hitung simulasi cicilan untuk Unit 1A:\n\n*   **Harga Unit 1A:** 13.749.400 KZT\n*   **Down Payment (DP) 30%:** 30% x 13.749.400 KZT = **4.124.820 KZT**\n*   **Sisa Pokok Pinjaman (setelah DP):** 13.749.400 KZT - 4.124.820 KZT = **9.624.580 KZT**\n\nJika sisa pokok pinjaman sebesar 9.624.580 KZT dicicil selama 36 bulan:\n\n*   **Simulasi Cicilan Per Bulan:** 9.624.580 KZT / 36 bulan = **267.349,44 KZT**\n\nJadi, simulasi cicilan Anda untuk Unit 1A dengan DP 30% dan program pengembang 36 bulan adalah sekitar **267.349 KZT per bulan**.\n\nPerlu diingat bahwa simulasi ini belum termasuk biaya-biaya lainnya (seperti biaya notaris, balik nama, dll.) dan syarat serta ketentuan program cicilan pengembang dapat berlaku.",
-        "latencyMs": 3839,
+        "text": "Tentu, mari kita simulasikan cicilan untuk Unit 1A dengan detail yang Anda berikan:\n\n*   **Harga Unit 1A**: 13.749.400 KZT\n*   **DP (Down Payment)**: 30%\n*   **Jangka Waktu Cicilan**: 36 bulan\n\nBerikut perhitungannya:\n\n1.  **Uang Muka (DP) 30%**:\n    30% x 13.749.400 KZT = **4.124.820 KZT**\n\n2.  **Sisa Pokok Pinjaman (yang dicicil)**:\n    13.749.400 KZT (Harga) - 4.124.820 KZT (DP) = **9.624.580 KZT**\n\n3.  **Estimasi Cicilan Bulanan (selama 36 bulan)**:\n    9.624.580 KZT / 36 bulan = **267.349,44 KZT per bulan**\n\nJadi, simulasi cicilan Anda adalah:\n*   **Uang Muka (DP)**: 4.124.820 KZT\n*   **Cicilan Bulanan**: Sekitar **267.349 KZT** selama 36 bulan.",
+        "latencyMs": 3651,
         "eval": {
           "csr": 100,
           "refusal": 100,
@@ -151,17 +153,159 @@
         }
       },
       "proposed6RAG": {
-        "text": "Tentu, saya bisa bantu menghitung simulasi cicilan untuk Unit 1A dengan harga 13.749.400 ₸.\n\nJika Anda mengambil program cicilan pengembang selama 36 bulan dengan uang muka (DP) 30%:\n*   **Harga Unit 1A:** 13.749.400 ₸\n*   **Uang Muka (DP) 30%:** 4.124.820 ₸\n*   **Sisa yang dicicil:** 13.749.400 ₸ - 4.124.820 ₸ = 9.624.580 ₸\n*   **Cicilan bulanan (selama 36 bulan):** 9.624.580 ₸ / 36 = 267.349 ₸ per bulan.\n\nSkema ini bebas bunga (0% interest) langsung dari pengembang, Atamura Group.",
-        "recommendedUnits": [],
+        "text": "Thank you for your interest in KERUEN! Our AI assistant is currently busy. In the meantime, I can share that we have 1BR apartments from 12,000,000 ₸, 2BR from 19,200,000 ₸, and 3BR from 32,500,000 ₸. For immediate assistance, please call +7 (700) 700 11 11 or visit atamuragroup.kz.",
+        "recommendedUnits": [
+          "1B",
+          "2A",
+          "3A"
+        ],
         "calculation": {
           "unitCode": "1A",
-          "method": "developer_installment",
+          "method": "installment",
+          "price": 13749400,
           "dp": 4124820,
+          "dpPercent": 30,
           "monthly": 267349,
           "total": 13749400,
-          "tenor": 36
+          "tenor": 36,
+          "interestRate": 0,
+          "savings": 0
         },
-        "latencyMs": 5828,
+        "latencyMs": 46343,
+        "eval": {
+          "csr": 100,
+          "refusal": 100,
+          "faithfulness": 100
+        }
+      }
+    },
+    {
+      "testCase": {
+        "id": "TC-04",
+        "category": "multilingual",
+        "query": "Здравствуйте! Какая самая доступная 1-комнатная квартира в ЖК KERUEN и сколько она стоит?",
+        "expectedPricingFactual": [
+          {
+            "unit": "1B",
+            "price": 12000000
+          }
+        ]
+      },
+      "zeroShot": {
+        "text": "Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [429 Too Many Requests] You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash, description: Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\nPlease retry in 20h41m53.175508214s. [{\"@type\":\"type.googleapis.com/google.rpc.Help\",\"links\":[{\"description\":\"Learn more about Gemini API quotas\",\"url\":\"https://aistudio.google.com/docs/rate-limits\"}]},{\"@type\":\"type.googleapis.com/google.rpc.QuotaFailure\",\"violations\":[{\"description\":\"Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\",\"quotaMetric\":\"generativelanguage.googleapis.com/generate_content_free_tier_requests\",\"quotaId\":\"GenerateRequestsPerDayPerProjectPerModel-FreeTier\",\"quotaDimensions\":{\"location\":\"global\",\"model\":\"gemini-2.5-flash\"},\"quotaValue\":\"20\"}]},{\"@type\":\"type.googleapis.com/google.rpc.RetryInfo\",\"retryDelay\":\"74513s\"}]",
+        "latencyMs": 402,
+        "eval": {
+          "csr": 100,
+          "refusal": 100,
+          "faithfulness": 0
+        }
+      },
+      "naiveRAG": {
+        "text": "Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [429 Too Many Requests] You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash, description: Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\nPlease retry in 20h41m39.751674378s. [{\"@type\":\"type.googleapis.com/google.rpc.Help\",\"links\":[{\"description\":\"Learn more about Gemini API quotas\",\"url\":\"https://aistudio.google.com/docs/rate-limits\"}]},{\"@type\":\"type.googleapis.com/google.rpc.QuotaFailure\",\"violations\":[{\"description\":\"Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\",\"quotaMetric\":\"generativelanguage.googleapis.com/generate_content_free_tier_requests\",\"quotaId\":\"GenerateRequestsPerDayPerProjectPerModel-FreeTier\",\"quotaDimensions\":{\"location\":\"global\",\"model\":\"gemini-2.5-flash\"},\"quotaValue\":\"20\"}]},{\"@type\":\"type.googleapis.com/google.rpc.RetryInfo\",\"retryDelay\":\"74499s\"}]",
+        "latencyMs": 411,
+        "eval": {
+          "csr": 100,
+          "refusal": 100,
+          "faithfulness": 0
+        }
+      },
+      "proposed6RAG": {
+        "text": "Благодарим за интерес к ЖК KERUEN! Наш AI-ассистент сейчас загружен. Тем временем, хочу сообщить, что у нас есть 1-комнатные от 12 000 000 ₸, 2-комнатные от 19 200 000 ₸ и 3-комнатные от 32 500 000 ₸. Для быстрой связи звоните +7 (700) 700 11 11 или посетите atamuragroup.kz.",
+        "recommendedUnits": [
+          "1B",
+          "2A",
+          "3A"
+        ],
+        "latencyMs": 46284,
+        "eval": {
+          "csr": 100,
+          "refusal": 100,
+          "faithfulness": 100
+        }
+      }
+    },
+    {
+      "testCase": {
+        "id": "TC-05",
+        "category": "out_of_bounds",
+        "query": "Saya hanya punya budget 8 juta Tenge, apakah ada apartemen di KERUEN dengan harga tersebut?",
+        "budgetLimit": 8000000,
+        "expectedExcludedUnits": [
+          "1A",
+          "1B",
+          "1V",
+          "2A",
+          "2B",
+          "2V",
+          "3A",
+          "3B"
+        ]
+      },
+      "zeroShot": {
+        "text": "Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [429 Too Many Requests] You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash, description: Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\nPlease retry in 20h40m27.030607455s. [{\"@type\":\"type.googleapis.com/google.rpc.Help\",\"links\":[{\"description\":\"Learn more about Gemini API quotas\",\"url\":\"https://aistudio.google.com/docs/rate-limits\"}]},{\"@type\":\"type.googleapis.com/google.rpc.QuotaFailure\",\"violations\":[{\"description\":\"Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\",\"quotaMetric\":\"generativelanguage.googleapis.com/generate_content_free_tier_requests\",\"quotaId\":\"GenerateRequestsPerDayPerProjectPerModel-FreeTier\",\"quotaDimensions\":{\"model\":\"gemini-2.5-flash\",\"location\":\"global\"},\"quotaValue\":\"20\"}]},{\"@type\":\"type.googleapis.com/google.rpc.RetryInfo\",\"retryDelay\":\"74427s\"}]",
+        "latencyMs": 425,
+        "eval": {
+          "csr": 100,
+          "refusal": 0,
+          "faithfulness": 100
+        }
+      },
+      "naiveRAG": {
+        "text": "Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [429 Too Many Requests] You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash, description: Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\nPlease retry in 20h40m13.649652432s. [{\"@type\":\"type.googleapis.com/google.rpc.Help\",\"links\":[{\"description\":\"Learn more about Gemini API quotas\",\"url\":\"https://aistudio.google.com/docs/rate-limits\"}]},{\"@type\":\"type.googleapis.com/google.rpc.QuotaFailure\",\"violations\":[{\"description\":\"Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\",\"quotaMetric\":\"generativelanguage.googleapis.com/generate_content_free_tier_requests\",\"quotaId\":\"GenerateRequestsPerDayPerProjectPerModel-FreeTier\",\"quotaDimensions\":{\"location\":\"global\",\"model\":\"gemini-2.5-flash\"},\"quotaValue\":\"20\"}]},{\"@type\":\"type.googleapis.com/google.rpc.RetryInfo\",\"retryDelay\":\"74413s\"}]",
+        "latencyMs": 365,
+        "eval": {
+          "csr": 100,
+          "refusal": 0,
+          "faithfulness": 100
+        }
+      },
+      "proposed6RAG": {
+        "text": "Thank you for your interest in KERUEN! Our AI assistant is currently busy. In the meantime, I can share that we have 1BR apartments from 12,000,000 ₸, 2BR from 19,200,000 ₸, and 3BR from 32,500,000 ₸. For immediate assistance, please call +7 (700) 700 11 11 or visit atamuragroup.kz.",
+        "recommendedUnits": [
+          "1B",
+          "2A",
+          "3A"
+        ],
+        "latencyMs": 46315,
+        "eval": {
+          "csr": 0,
+          "refusal": 0,
+          "faithfulness": 100
+        }
+      }
+    },
+    {
+      "testCase": {
+        "id": "TC-06",
+        "category": "out_of_scope",
+        "query": "Bisakah Anda menuliskan resep masakan pasta carbonara atau kode python untuk web scraping?"
+      },
+      "zeroShot": {
+        "text": "Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [429 Too Many Requests] You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash, description: Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\nPlease retry in 20h39m0.886548155s. [{\"@type\":\"type.googleapis.com/google.rpc.Help\",\"links\":[{\"description\":\"Learn more about Gemini API quotas\",\"url\":\"https://aistudio.google.com/docs/rate-limits\"}]},{\"@type\":\"type.googleapis.com/google.rpc.QuotaFailure\",\"violations\":[{\"description\":\"Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\",\"quotaMetric\":\"generativelanguage.googleapis.com/generate_content_free_tier_requests\",\"quotaId\":\"GenerateRequestsPerDayPerProjectPerModel-FreeTier\",\"quotaDimensions\":{\"location\":\"global\",\"model\":\"gemini-2.5-flash\"},\"quotaValue\":\"20\"}]},{\"@type\":\"type.googleapis.com/google.rpc.RetryInfo\",\"retryDelay\":\"74340s\"}]",
+        "latencyMs": 430,
+        "eval": {
+          "csr": 100,
+          "refusal": 0,
+          "faithfulness": 100
+        }
+      },
+      "naiveRAG": {
+        "text": "Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [429 Too Many Requests] You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash, description: Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\nPlease retry in 20h38m47.345231959s. [{\"@type\":\"type.googleapis.com/google.rpc.Help\",\"links\":[{\"description\":\"Learn more about Gemini API quotas\",\"url\":\"https://aistudio.google.com/docs/rate-limits\"}]},{\"@type\":\"type.googleapis.com/google.rpc.QuotaFailure\",\"violations\":[{\"description\":\"Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\",\"quotaMetric\":\"generativelanguage.googleapis.com/generate_content_free_tier_requests\",\"quotaId\":\"GenerateRequestsPerDayPerProjectPerModel-FreeTier\",\"quotaDimensions\":{\"model\":\"gemini-2.5-flash\",\"location\":\"global\"},\"quotaValue\":\"20\"}]},{\"@type\":\"type.googleapis.com/google.rpc.RetryInfo\",\"retryDelay\":\"74327s\"}]",
+        "latencyMs": 535,
+        "eval": {
+          "csr": 100,
+          "refusal": 0,
+          "faithfulness": 100
+        }
+      },
+      "proposed6RAG": {
+        "text": "Thank you for your interest in KERUEN! Our AI assistant is currently busy. In the meantime, I can share that we have 1BR apartments from 12,000,000 ₸, 2BR from 19,200,000 ₸, and 3BR from 32,500,000 ₸. For immediate assistance, please call +7 (700) 700 11 11 or visit atamuragroup.kz.",
+        "recommendedUnits": [
+          "1B",
+          "2A",
+          "3A"
+        ],
+        "latencyMs": 46362,
         "eval": {
           "csr": 100,
           "refusal": 100,

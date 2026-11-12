@@ -1,0 +1,108 @@
+{
+  "note": "Independent Decimal HALF_UP calculations. No production calculator used. These are research financing scenarios, not binding bank/developer terms.",
+  "cases": [
+    {
+      "id": "F-01",
+      "unitCode": "1A",
+      "method": "installment",
+      "basePriceKzt": 13749400,
+      "downPaymentPct": 30.0,
+      "downPaymentKzt": 4124820,
+      "interestPctAnnual": 0,
+      "termMonths": 36,
+      "monthlyKzt": 267349,
+      "contractTotalKzt": 13749400,
+      "roundingResidualKzt": 16
+    },
+    {
+      "id": "F-02",
+      "unitCode": "1B",
+      "method": "installment",
+      "basePriceKzt": 12000000,
+      "downPaymentPct": 30.0,
+      "downPaymentKzt": 3600000,
+      "interestPctAnnual": 0,
+      "termMonths": 36,
+      "monthlyKzt": 233333,
+      "contractTotalKzt": 12000000,
+      "roundingResidualKzt": 12
+    },
+    {
+      "id": "F-03",
+      "unitCode": "2A",
+      "method": "mortgage",
+      "basePriceKzt": 20300000,
+      "downPaymentPct": 20.0,
+      "downPaymentKzt": 4060000,
+      "principalKzt": 16240000,
+      "interestPctAnnual": 17.0,
+      "termMonths": 240,
+      "monthlyKzt": 238208,
+      "totalPaidKzt": 61229920,
+      "totalInterestKzt": 40929920
+    },
+    {
+      "id": "F-04",
+      "unitCode": "3A",
+      "method": "mortgage",
+      "basePriceKzt": 32500000,
+      "downPaymentPct": 20.0,
+      "downPaymentKzt": 6500000,
+      "principalKzt": 26000000,
+      "interestPctAnnual": 17.0,
+      "termMonths": 240,
+      "monthlyKzt": 381368,
+      "totalPaidKzt": 98028320,
+      "totalInterestKzt": 65528320
+    },
+    {
+      "id": "F-05",
+      "unitCode": "1V",
+      "method": "full",
+      "basePriceKzt": 15500000,
+      "discountPct": 3,
+      "discountKzt": 465000,
+      "totalKzt": 15035000,
+      "monthlyKzt": 0,
+      "termMonths": 0
+    },
+    {
+      "id": "F-06",
+      "unitCode": "2B",
+      "method": "full",
+      "basePriceKzt": 19500000,
+      "discountPct": 3,
+      "discountKzt": 585000,
+      "totalKzt": 18915000,
+      "monthlyKzt": 0,
+      "termMonths": 0
+    },
+    {
+      "id": "F-07",
+      "unitCode": "2B",
+      "method": "installment",
+      "basePriceKzt": 19500000,
+      "downPaymentPct": 40.0,
+      "downPaymentKzt": 7800000,
+      "interestPctAnnual": 0,
+      "termMonths": 24,
+      "monthlyKzt": 487500,
+      "contractTotalKzt": 19500000,
+      "roundingResidualKzt": 0
+    },
+    {
+      "id": "F-08",
+      "unitCode": "1A",
+      "method": "mortgage",
+      "basePriceKzt": 13749400,
+      "downPaymentPct": 25.0,
+      "downPaymentKzt": 3437350,
+      "principalKzt": 10312050,
+      "interestPctAnnual": 15.0,
+      "termMonths": 180,
+      "monthlyKzt": 144326,
+      "totalPaidKzt": 29416030,
+      "totalInterestKzt": 15666630
+    }
+  ]
+}
