@@ -27,11 +27,14 @@ import { extractCriteria, filterUnits } from '../src/lib/rules';
 // Constants & Controlled Hyperparameters (Uniform across ALL configurations)
 // ============================================================================
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const DIRECT_GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+let activeGroqApiUrl = process.env.GROQ_API_URL || 'http://127.0.0.1:20128/v1/chat/completions';
+const isLocalRouterUrl = (url: string): boolean => /localhost|127\.0\.0\.1/.test(url);
+const normalizeModelId = (m?: string): string => (m ? m.replace(/^groq\//, '') : '');
 const BENCHMARK_TEMPERATURE = 0.1;
 const BENCHMARK_MAX_TOKENS = 1024;
 const REQUEST_TIMEOUT_MS = 30_000;
-const MAX_RETRIES = 6;
+const MAX_RETRIES = 10;
 
 const DEFAULT_MODELS = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b'] as const;
 
@@ -266,21 +269,21 @@ function parseCliArgs(argv: string[]): CliArgs {
 
   const models = argsMap.has('models')
     ? argsMap
-        .get('models')!
-        .split(',')
-        .map((m) => m.trim())
-        .filter(Boolean)
+      .get('models')!
+      .split(',')
+      .map((m) => m.trim())
+      .filter(Boolean)
     : [...DEFAULT_MODELS];
 
   const reasoningEffort = argsMap.get('reasoning-effort') || 'default';
-  const concurrency = Math.max(1, Math.min(2, parseInt(argsMap.get('concurrency') || '2', 10) || 2));
+  const concurrency = Math.max(1, Math.min(8, parseInt(argsMap.get('concurrency') || '2', 10) || 2));
   const limitCases = argsMap.has('limit') ? parseInt(argsMap.get('limit')!, 10) : undefined;
   const seedFromPaths = argsMap.has('seed-from')
     ? argsMap
-        .get('seed-from')!
-        .split(',')
-        .map((p) => p.trim())
-        .filter(Boolean)
+      .get('seed-from')!
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean)
     : [];
 
   return {
@@ -376,6 +379,7 @@ class ModelRateLimiter {
   >();
 
   async paceBeforeRequest(model: string, estimatedTokensNeeded: number): Promise<void> {
+    if (isLocalRouterUrl(activeGroqApiUrl)) return;
     const st = this.stateByModel.get(model);
     if (!st) return;
 
@@ -446,8 +450,10 @@ async function callGroqSingleModel(params: {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     await rateLimiter.paceBeforeRequest(model, estimatedTokensNeeded);
 
+    const wireModel =
+      isLocalRouterUrl(activeGroqApiUrl) && !model.startsWith('groq/') ? `groq/${model}` : model;
     const payload: Record<string, unknown> = {
-      model,
+      model: wireModel,
       messages,
       temperature: BENCHMARK_TEMPERATURE,
       max_tokens: BENCHMARK_MAX_TOKENS,
@@ -464,7 +470,7 @@ async function callGroqSingleModel(params: {
     const reqStart = Date.now();
 
     try {
-      const response = await fetch(GROQ_API_URL, {
+      const response = await fetch(activeGroqApiUrl, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -485,23 +491,38 @@ async function callGroqSingleModel(params: {
         lastStatusCode = response.status;
         lastErrorMessage = errorText.slice(0, 500);
 
-        if (response.status === 429) {
-          lastErrorType = 'rate_limit_429';
+        const isRouterRateLimit =
+          response.status === 503 && /\[429\]|rate_limit|reset after|try again in/i.test(errorText);
+
+        if (response.status === 429 || isRouterRateLimit) {
+          lastErrorType = isRouterRateLimit ? 'router_rate_limit_503' : 'rate_limit_429';
+          const matchReset = errorText.match(/reset after (?:(\d+)m\s*)?(\d+)s/i);
           const matchSec = errorText.match(/try again in ([0-9.]+)s/i);
           const matchMs = errorText.match(/try again in ([0-9.]+)ms/i);
           const retryAfter = response.headers.get('retry-after');
-          let waitMs = rl.resetTokensMs > 0 ? rl.resetTokensMs + 1000 : 5000;
-          if (matchSec) {
+          let waitMs = rl.resetTokensMs > 0 ? rl.resetTokensMs + 1000 : 12_000;
+          if (matchReset) {
+            const mins = parseInt(matchReset[1] || '0', 10);
+            const secs = parseInt(matchReset[2] || '0', 10);
+            waitMs = Math.max(waitMs, (mins * 60 + secs) * 1000 + 1500);
+          } else if (matchSec) {
             waitMs = Math.max(waitMs, Math.ceil(parseFloat(matchSec[1]) * 1000) + 1200);
           } else if (matchMs) {
             waitMs = Math.max(waitMs, Math.ceil(parseFloat(matchMs[1])) + 1200);
           } else if (retryAfter && !isNaN(Number(retryAfter))) {
             waitMs = Math.max(waitMs, Number(retryAfter) * 1000 + 1000);
           }
+          if (isLocalRouterUrl(activeGroqApiUrl)) {
+            waitMs = isRouterRateLimit
+              ? Math.min(65_000, Math.max(waitMs, 12_000))
+              : attempt < 2
+                ? Math.min(waitMs, 1500)
+                : Math.min(65_000, waitMs);
+          }
           if (attempt < MAX_RETRIES - 1) {
             retries++;
             console.warn(
-              `[429] ${model} attempt ${attempt + 1}/${MAX_RETRIES} waiting ${waitMs}ms...`
+              `[${response.status} rate-limit] ${model} attempt ${attempt + 1}/${MAX_RETRIES} waiting ${waitMs}ms...`
             );
             await sleep(waitMs);
             continue;
@@ -541,7 +562,9 @@ async function callGroqSingleModel(params: {
         };
       }
 
-      const data = (await response.json()) as {
+      const rawResponseText = await response.text();
+      const cleanedResponseText = rawResponseText.replace(/\r?\n\s*data:\s*\[DONE\]\s*$/i, '').trim();
+      const data = JSON.parse(cleanedResponseText) as {
         model?: string;
         choices?: Array<{
           finish_reason?: string;
@@ -581,21 +604,21 @@ async function callGroqSingleModel(params: {
           apiLatencyMs,
           totalWallMs: Date.now() - wallStart,
           requestedModel: model,
-          actualModelUsed: data.model || model,
+          actualModelUsed: normalizeModelId(data.model) || model,
           rawContent: '',
           reasoning: msg?.reasoning || null,
           finishReason,
           usage: data.usage
             ? {
-                prompt_tokens: data.usage.prompt_tokens || 0,
-                completion_tokens: data.usage.completion_tokens || 0,
-                total_tokens: data.usage.total_tokens || 0,
-                reasoning_tokens: data.usage.completion_tokens_details?.reasoning_tokens || 0,
-                queue_time: data.usage.queue_time,
-                prompt_time: data.usage.prompt_time,
-                completion_time: data.usage.completion_time,
-                total_time: data.usage.total_time,
-              }
+              prompt_tokens: data.usage.prompt_tokens || 0,
+              completion_tokens: data.usage.completion_tokens || 0,
+              total_tokens: data.usage.total_tokens || 0,
+              reasoning_tokens: data.usage.completion_tokens_details?.reasoning_tokens || 0,
+              queue_time: data.usage.queue_time,
+              prompt_time: data.usage.prompt_time,
+              completion_time: data.usage.completion_time,
+              total_time: data.usage.total_time,
+            }
             : null,
           rateLimitHeaders: rl,
         };
@@ -610,21 +633,21 @@ async function callGroqSingleModel(params: {
         apiLatencyMs,
         totalWallMs: Date.now() - wallStart,
         requestedModel: model,
-        actualModelUsed: data.model || model,
+        actualModelUsed: normalizeModelId(data.model) || model,
         rawContent,
         reasoning: msg?.reasoning || null,
         finishReason,
         usage: data.usage
           ? {
-              prompt_tokens: data.usage.prompt_tokens || 0,
-              completion_tokens: data.usage.completion_tokens || 0,
-              total_tokens: data.usage.total_tokens || 0,
-              reasoning_tokens: data.usage.completion_tokens_details?.reasoning_tokens || 0,
-              queue_time: data.usage.queue_time,
-              prompt_time: data.usage.prompt_time,
-              completion_time: data.usage.completion_time,
-              total_time: data.usage.total_time,
-            }
+            prompt_tokens: data.usage.prompt_tokens || 0,
+            completion_tokens: data.usage.completion_tokens || 0,
+            total_tokens: data.usage.total_tokens || 0,
+            reasoning_tokens: data.usage.completion_tokens_details?.reasoning_tokens || 0,
+            queue_time: data.usage.queue_time,
+            prompt_time: data.usage.prompt_time,
+            completion_time: data.usage.completion_time,
+            total_time: data.usage.total_time,
+          }
           : null,
         rateLimitHeaders: rl,
       };
@@ -677,36 +700,36 @@ function simulateDryRunResponse(
       lang === 'ru'
         ? 'К сожалению, нет доступных квартир, соответствующих вашим критериям.'
         : lang === 'kz'
-        ? 'Өкінішке орай, көрсетілген талаптарға сәйкес келетін бос пәтерлер жоқ.'
-        : 'Unfortunately, there are no available units in KERUEN matching your specified criteria.';
+          ? 'Өкінішке орай, көрсетілген талаптарға сәйкес келетін бос пәтерлер жоқ.'
+          : 'Unfortunately, there are no available units in KERUEN matching your specified criteria.';
   } else if (tc?.groundTruth.requiredRefusals?.includes('do_not_offer_3B_sold')) {
     message =
       lang === 'ru'
         ? 'Квартира 3B продана и недоступна. Доступен вариант 3A.'
         : lang === 'kz'
-        ? '3B пәтері сатылып кеткен және қолжетімді емес. 3A пәтері қолжетімді.'
-        : 'Unit 3B is sold out and not available. Unit 3A is available.';
+          ? '3B пәтері сатылып кеткен және қолжетімді емес. 3A пәтері қолжетімді.'
+          : 'Unit 3B is sold out and not available. Unit 3A is available.';
   } else if (tc?.groundTruth.requiredRefusals?.includes('do_not_offer_2V_reserved')) {
     message =
       lang === 'ru'
         ? 'Квартира 2V забронирована и недоступна. Доступны 2A и 2B.'
         : lang === 'kz'
-        ? '2V пәтері брондалған және қолжетімді емес. 2A және 2B қолжетімді.'
-        : 'Unit 2V is reserved and not available. Units 2A and 2B are available.';
+          ? '2V пәтері брондалған және қолжетімді емес. 2A және 2B қолжетімді.'
+          : 'Unit 2V is reserved and not available. Units 2A and 2B are available.';
   } else if (tc?.groundTruth.requiredRefusals?.includes('politely_decline_out_of_scope')) {
     message =
       lang === 'ru'
         ? 'Я AI-консультант по недвижимости ЖК KERUEN от Atamura Group и могу помочь только с вопросами недвижимости.'
         : lang === 'kz'
-        ? 'Мен Atamura Group KERUEN жылжымайтын мүлік кеңесшісімін, тек пәтерлер бойынша көмектесе аламын.'
-        : 'I am an Atamura Group KERUEN real estate consultant and can only assist with property inquiries.';
+          ? 'Мен Atamura Group KERUEN жылжымайтын мүлік кеңесшісімін, тек пәтерлер бойынша көмектесе аламын.'
+          : 'I am an Atamura Group KERUEN real estate consultant and can only assist with property inquiries.';
   } else if (tc?.groundTruth.requiredRefusals?.includes('do_not_claim_bank_approval')) {
     message =
       lang === 'ru'
         ? 'Я не могу подтвердить одобрение ипотеки банком под 5% без проверки банка.'
         : lang === 'kz'
-        ? 'Банк тексеруінсіз 5% ипотека мақұлданғанын растай алмаймын.'
-        : 'I cannot confirm or guarantee that a bank has approved a 5% mortgage without bank verification.';
+          ? 'Банк тексеруінсіз 5% ипотека мақұлданғанын растай алмаймын.'
+          : 'I cannot confirm or guarantee that a bank has approved a 5% mortgage without bank verification.';
   } else if (tc?.category === 'finance' && tc.groundTruth.calculation) {
     const g = tc.groundTruth.calculation;
     if (g.method === 'full') {
@@ -723,17 +746,17 @@ function simulateDryRunResponse(
     const calcObj =
       tc?.category === 'finance' && tc.groundTruth.calculation
         ? {
-            unitCode: tc.groundTruth.calculation.unitCode,
-            method: tc.groundTruth.calculation.method,
-            dp: tc.groundTruth.calculation.downPaymentKzt ?? tc.groundTruth.calculation.totalKzt ?? 0,
-            monthly: tc.groundTruth.calculation.monthlyKzt ?? 0,
-            total:
-              tc.groundTruth.calculation.totalPaidKzt ??
-              tc.groundTruth.calculation.contractTotalKzt ??
-              tc.groundTruth.calculation.totalKzt ??
-              0,
-            tenor: tc.groundTruth.calculation.termMonths ?? 0,
-          }
+          unitCode: tc.groundTruth.calculation.unitCode,
+          method: tc.groundTruth.calculation.method,
+          dp: tc.groundTruth.calculation.downPaymentKzt ?? tc.groundTruth.calculation.totalKzt ?? 0,
+          monthly: tc.groundTruth.calculation.monthlyKzt ?? 0,
+          total:
+            tc.groundTruth.calculation.totalPaidKzt ??
+            tc.groundTruth.calculation.contractTotalKzt ??
+            tc.groundTruth.calculation.totalKzt ??
+            0,
+          tenor: tc.groundTruth.calculation.termMonths ?? 0,
+        }
         : null;
     rawContent = JSON.stringify({
       message,
@@ -907,11 +930,11 @@ function buildPrefilterUnitContext(query: string, allUnits: Unit[], includeCalcu
 
   const hasFilterConstraints = Boolean(
     criteria.budget !== undefined ||
-      criteria.rooms !== undefined ||
-      criteria.purpose ||
-      criteria.view ||
-      criteria.minArea !== undefined ||
-      matchedUnitCode
+    criteria.rooms !== undefined ||
+    criteria.purpose ||
+    criteria.view ||
+    criteria.minArea !== undefined ||
+    matchedUnitCode
   );
 
   const customDP = typeof entities.custom_dp === 'number' ? entities.custom_dp : undefined;
@@ -933,14 +956,14 @@ function buildPrefilterUnitContext(query: string, allUnits: Unit[], includeCalcu
   const intendedMethod: PaymentMethod = queryHasFull
     ? 'full'
     : queryHasMortgage
-    ? 'mortgage'
-    : queryHasInstallment || customRate === 0
-    ? 'installment'
-    : customRate !== undefined && customRate > 0
-    ? 'mortgage'
-    : customTenor !== undefined && customTenor > INSTALLMENT_MAX_MONTHS && customTenor <= MORTGAGE_MAX_MONTHS
-    ? 'mortgage'
-    : 'installment';
+      ? 'mortgage'
+      : queryHasInstallment || customRate === 0
+        ? 'installment'
+        : customRate !== undefined && customRate > 0
+          ? 'mortgage'
+          : customTenor !== undefined && customTenor > INSTALLMENT_MAX_MONTHS && customTenor <= MORTGAGE_MAX_MONTHS
+            ? 'mortgage'
+            : 'installment';
 
   let tenorValid = true;
   let tenorReason = '';
@@ -964,8 +987,8 @@ function buildPrefilterUnitContext(query: string, allUnits: Unit[], includeCalcu
     strictEligibleUnits.length > 0
       ? strictEligibleUnits
       : targetUnit && (targetUnit.status === 'sold' || targetUnit.status === 'reserved')
-      ? sameTypeEligibleAlternatives
-      : [];
+        ? sameTypeEligibleAlternatives
+        : [];
 
   let unitContext: string;
   if (!tenorValid) {
@@ -1783,9 +1806,32 @@ async function main() {
     return;
   }
 
-  const apiKey = process.env.GROQ_API_KEY || '';
+  let apiKey = isLocalRouterUrl(activeGroqApiUrl)
+    ? process.env.NINE_ROUTER_API_KEY || process.env.GROQ_API_KEY || ''
+    : process.env.GROQ_API_KEY || '';
+
+  if (!cli.dryRun && isLocalRouterUrl(activeGroqApiUrl)) {
+    const healthOrigin = new URL(activeGroqApiUrl).origin;
+    try {
+      const hc = await fetch(`${healthOrigin}/v1/models`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(2000),
+      });
+      if (!hc.ok) throw new Error(`HTTP ${hc.status}`);
+      console.log(`Routing Groq requests via 9router: ${activeGroqApiUrl}`);
+    } catch {
+      if (process.env.GROQ_API_KEY) {
+        console.warn(`9router unreachable at ${healthOrigin}; falling back to direct Groq API.`);
+        activeGroqApiUrl = DIRECT_GROQ_API_URL;
+        apiKey = process.env.GROQ_API_KEY;
+      } else {
+        throw new Error(`9router is unreachable at ${healthOrigin} and GROQ_API_KEY is missing.`);
+      }
+    }
+  }
+
   if (!cli.dryRun && !apiKey) {
-    throw new Error('GROQ_API_KEY is missing in .env.local or environment.');
+    throw new Error('NINE_ROUTER_API_KEY / GROQ_API_KEY is missing in .env.local or environment.');
   }
 
   const datasetKind: 'pilot' | 'main' = cli.dataset || (cli.mode === 'pilot' ? 'pilot' : 'main');
@@ -1825,60 +1871,60 @@ async function main() {
     meta = fs.existsSync(metaPath)
       ? (JSON.parse(fs.readFileSync(metaPath, 'utf8')) as RunMetadata)
       : ({
-          schemaVersion: 'revisi8-raw-v1',
-          runId: path.basename(rawJsonlPath, '.jsonl'),
-          mode: cli.mode,
-          status: 'in_progress',
-          startedAt: new Date().toISOString(),
-          completedAt: null,
-          dryRun: cli.dryRun,
-          dataset: datasetKind,
-          datasetPath: path.relative(repoRoot, casesPath).replace(/\\/g, '/'),
-          datasetSha256,
-          totalCases: cases.length,
-          totalPlannedCalls: cases.length * cli.models.length * configs.length,
-          completedCalls: 0,
-          okCalls: 0,
-          infraErrorCalls: 0,
-          configs,
-          models: cli.models,
-          hyperparams: {
-            temperature: BENCHMARK_TEMPERATURE,
-            max_tokens: BENCHMARK_MAX_TOKENS,
-            reasoning_effort: cli.reasoningEffort,
-          },
-          gitCommit,
-          gitDirty,
-          nodeVersion: process.version,
-          provenanceHashes: {
-            rawJsonlSha256: null,
-            catalogSnapshotFileSha256: sha256File(path.join(repoRoot, 'src', 'lib', 'catalogSnapshot.ts')),
-            catalogSerializedSha256: sha256Text(JSON.stringify(allUnits)),
-            evaluatorSha256: sha256File(path.join(__dirname, 'evaluator.ts')),
-            chatEngineSha256: sha256File(path.join(repoRoot, 'src', 'lib', 'chatEngine.ts')),
-            financialGroundTruthSha256: sha256File(finGtPath),
-          },
-          legacyConfigMapping: {
-            naive_rag: 'full_context (Full-Context Prompting — static catalog/company context, no vector DB)',
-          },
-          rawJsonlFile: rawJsonlPath,
-          metaFile: metaPath,
-        } satisfies RunMetadata);
+        schemaVersion: 'revisi8-raw-v1',
+        runId: path.basename(rawJsonlPath, '.jsonl'),
+        mode: cli.mode,
+        status: 'in_progress',
+        startedAt: new Date().toISOString(),
+        completedAt: null,
+        dryRun: cli.dryRun,
+        dataset: datasetKind,
+        datasetPath: path.relative(repoRoot, casesPath).replace(/\\/g, '/'),
+        datasetSha256,
+        totalCases: cases.length,
+        totalPlannedCalls: cases.length * cli.models.length * configs.length,
+        completedCalls: 0,
+        okCalls: 0,
+        infraErrorCalls: 0,
+        configs,
+        models: cli.models,
+        hyperparams: {
+          temperature: BENCHMARK_TEMPERATURE,
+          max_tokens: BENCHMARK_MAX_TOKENS,
+          reasoning_effort: cli.reasoningEffort,
+        },
+        gitCommit,
+        gitDirty,
+        nodeVersion: process.version,
+        provenanceHashes: {
+          rawJsonlSha256: null,
+          catalogSnapshotFileSha256: sha256File(path.join(repoRoot, 'src', 'lib', 'catalogSnapshot.ts')),
+          catalogSerializedSha256: sha256Text(JSON.stringify(allUnits)),
+          evaluatorSha256: sha256File(path.join(__dirname, 'evaluator.ts')),
+          chatEngineSha256: sha256File(path.join(repoRoot, 'src', 'lib', 'chatEngine.ts')),
+          financialGroundTruthSha256: sha256File(finGtPath),
+        },
+        legacyConfigMapping: {
+          naive_rag: 'full_context (Full-Context Prompting — static catalog/company context, no vector DB)',
+        },
+        rawJsonlFile: rawJsonlPath,
+        metaFile: metaPath,
+      } satisfies RunMetadata);
     meta.status = 'in_progress';
     console.log(`Resuming explicit archive: ${rawJsonlPath}`);
   } else {
     const autoCandidate = !cli.fresh
       ? findAutoResumeRun({
-          rawDir,
-          mode: cli.mode,
-          dataset: datasetKind,
-          datasetSha256,
-          configs,
-          models: cli.models,
-          reasoningEffort: cli.reasoningEffort,
-          gitCommit,
-          dryRun: cli.dryRun,
-        })
+        rawDir,
+        mode: cli.mode,
+        dataset: datasetKind,
+        datasetSha256,
+        configs,
+        models: cli.models,
+        reasoningEffort: cli.reasoningEffort,
+        gitCommit,
+        dryRun: cli.dryRun,
+      })
       : null;
 
     const canAutoResume =
@@ -1999,8 +2045,9 @@ async function main() {
     fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8');
   };
 
-  // Run 1 independent queue per model so separate TPM buckets run concurrently without cross-interference
-  const runModelQueue = async (model: string) => {
+  // Run independent queues per model with optional intra-model concurrency for multi-key 9router pools
+  const runModelQueue = async (model: string, workersPerModel: number) => {
+    const pendingTasks: Array<{ tc: PilotCase; config: ArchitectureConfig }> = [];
     for (let i = 0; i < cases.length; i++) {
       const tc = cases[i];
       for (const config of configs) {
@@ -2011,6 +2058,17 @@ async function main() {
             continue;
           }
         }
+        pendingTasks.push({ tc, config });
+      }
+    }
+
+    let nextIndex = 0;
+    const workerCount = Math.max(1, Math.min(workersPerModel, pendingTasks.length || 1));
+    const runWorker = async () => {
+      while (true) {
+        const idx = nextIndex++;
+        if (idx >= pendingTasks.length) break;
+        const { tc, config } = pendingTasks[idx];
 
         const record = await executeTrial({
           runId: meta.runId,
@@ -2038,14 +2096,17 @@ async function main() {
           updateMetaCounts(false);
         }
       }
-    }
+    };
+
+    await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
   };
 
   if (cli.concurrency >= 2 && cli.models.length > 1) {
-    await Promise.all(cli.models.map((m) => runModelQueue(m)));
+    const workersPerModel = Math.max(1, Math.floor(cli.concurrency / cli.models.length));
+    await Promise.all(cli.models.map((m) => runModelQueue(m, workersPerModel)));
   } else {
     for (const m of cli.models) {
-      await runModelQueue(m);
+      await runModelQueue(m, cli.concurrency);
     }
   }
 

@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "revisi8-raw-v1",
+  "runId": "run_2026-11-13T09-05-53Z_c533d0d_main",
+  "mode": "main",
+  "status": "completed",
+  "startedAt": "2026-11-13T09:05:53.719Z",
+  "completedAt": "2026-11-13T15:47:23.443Z",
+  "dryRun": false,
+  "dataset": "main",
+  "datasetPath": "benchmark/benchmark_cases.jsonl",
+  "datasetSha256": "88b619396e28e6aed57f56187829fcce0a783cc0707960fda34fbbb9b17d60bc",
+  "totalCases": 120,
+  "totalPlannedCalls": 1200,
+  "completedCalls": 1200,
+  "okCalls": 1191,
+  "infraErrorCalls": 9,
+  "configs": [
+    "zero_shot",
+    "full_context",
+    "plus_prefilter",
+    "plus_calculator",
+    "proposed_hybrid"
+  ],
+  "models": [
+    "openai/gpt-oss-120b",
+    "qwen/qwen3.8-27b"
+  ],
+  "hyperparams": {
+    "temperature": 0.1,
+    "max_tokens": 1024,
+    "reasoning_effort": "default"
+  },
+  "gitCommit": "c533d0d",
+  "gitDirty": true,
+  "nodeVersion": "v24.12.0",
+  "provenanceHashes": {
+    "rawJsonlSha256": "80d8c0ac112d3dc63902eade5b335ec5373aa4078cf4e17ab3d33d1b202be867",
+    "catalogSnapshotFileSha256": "1ae117b62109a7cc7a733ca3249c7c0c009466b6fef3741527c36ee878ecf31e",
+    "catalogSerializedSha256": "2699edf9aa6b584b38ce0b8790a333019acdc006ef150e762520da1d55a53b29",
+    "evaluatorSha256": "29885913b6e4f7ecd11628736f3220ba60f92f012787db8afd06290d376648e3",
+    "chatEngineSha256": "0c1cd05f47bfe4132d8d9dfa8b5182afeea3cb6a897d635dba2101c1869c295d",
+    "financialGroundTruthSha256": "df7670ebbdf10375d8a001576e4f7005fbd6bae19d63fad53155bc1625494167"
+  },
+  "legacyConfigMapping": {
+    "naive_rag": "full_context (Full-Context Prompting — static catalog/company context, no vector DB)"
+  },
+  "rawJsonlFile": "B:\\Projects\\hh.jobs\\Atamura Group\\atamura-chatbot\\benchmark\\raw\\run_2026-11-13T09-05-53Z_c533d0d_main.jsonl",
+  "metaFile": "B:\\Projects\\hh.jobs\\Atamura Group\\atamura-chatbot\\benchmark\\raw\\run_2026-11-13T09-05-53Z_c533d0d_main.meta.json"
+}
