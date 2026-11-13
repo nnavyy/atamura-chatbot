@@ -7,6 +7,9 @@
  * 4. Deterministic Chat Engine Sanitization (chatEngine.ts)
  */
 
+import fs from 'fs';
+import path from 'path';
+
 import {
   calcFullPayment,
   calcInstallment,
@@ -190,8 +193,198 @@ assert(entKZ.budget === 20000000, 'Extracts 20,000,000 budget from Kazakh query'
 const entRU = extractEntities('Интересует Unit 1A, телефон +77011234567, первоначальный взнос 30% на 36 месяцев');
 assert(entRU.unit_code === '1A', 'Extracts Unit 1A code in RU', `Got: ${entRU.unit_code}`);
 assert(entRU.phone === '+77011234567', 'Extracts phone number in RU', `Got: ${entRU.phone}`);
+assert(entRU.budget === undefined, 'Phone number +77011234567 does NOT leak into entities.budget', `Got: ${entRU.budget}`);
 assert(entRU.custom_dp === 30, 'Extracts custom DP in RU', `Got: ${entRU.custom_dp}`);
 assert(entRU.custom_tenor === 36, 'Extracts custom tenor in RU', `Got: ${entRU.custom_tenor}`);
+
+const entPhoneLocal = extractEntities('Call me on 87011234567 or 8 (701) 123-45-67 about Unit 2B');
+assert(entPhoneLocal.budget === undefined, 'Local 87011234567 / 8 (701) 123-45-67 do NOT populate entities.budget');
+
+// Regression #32/#37: Kazakh instrumental tenor ("аймен" / "жылмен") extraction (F-08-KK, F-03-KK)
+const entKZAimen180 = extractEntities(
+  '1A пәтері үшін әдепкі шарттардың орнына 25% бастапқы жарна, жылдық 15% және 180 аймен шартты ипотеканы есептеңіз.'
+);
+assert(entKZAimen180.unit_code === '1A', 'F-08-KK extracts unit_code 1A', `Got: ${entKZAimen180.unit_code}`);
+assert(entKZAimen180.custom_dp === 25, 'F-08-KK extracts custom_dp 25%', `Got: ${entKZAimen180.custom_dp}`);
+assert(entKZAimen180.custom_rate === 15, 'F-08-KK extracts custom_rate 15%', `Got: ${entKZAimen180.custom_rate}`);
+assert(entKZAimen180.custom_tenor === 180, 'F-08-KK extracts custom_tenor 180 from "180 аймен"', `Got: ${entKZAimen180.custom_tenor}`);
+
+const entKZAimen240 = extractEntities('1A пәтеріне 20% бастапқы жарна және 240 аймен ипотека есептеңіз.');
+assert(entKZAimen240.custom_tenor === 240, 'F-03-KK extracts custom_tenor 240 from "240 аймен"', `Got: ${entKZAimen240.custom_tenor}`);
+
+const entKZJylmen = extractEntities('2A пәтеріне 15 жылмен ипотека есептеңіз.');
+assert(entKZJylmen.custom_tenor === 180, 'Kazakh "15 жылмен" converts to custom_tenor 180 months', `Got: ${entKZJylmen.custom_tenor}`);
+
+// -----------------------------------------------------------------------------
+// 4. P1.8 Independent Financial Ground-Truth Oracle (calculator.ts)
+// -----------------------------------------------------------------------------
+console.log('\n--- 4. Testing P1.8 Independent Financial Ground-Truth Oracle ---');
+
+interface GroundTruthCase {
+  id: string;
+  unitCode: string;
+  method: 'full' | 'installment' | 'mortgage';
+  basePriceKzt: number;
+  downPaymentPct?: number;
+  downPaymentKzt?: number;
+  principalKzt?: number;
+  interestPctAnnual?: number;
+  termMonths?: number;
+  monthlyKzt?: number;
+  contractTotalKzt?: number;
+  roundingResidualKzt?: number;
+  totalPaidKzt?: number;
+  totalInterestKzt?: number;
+  discountKzt?: number;
+  totalKzt?: number;
+}
+
+function indepFull(price: number) {
+  const total = Math.round(price * 0.97);
+  return { total, savings: price - total, dp: total };
+}
+
+function indepInstallment(price: number, dpPct: number, months: number) {
+  const dp = Math.round(price * (dpPct / 100));
+  const remaining = price - dp;
+  const monthly = Math.round(remaining / months);
+  const residual = price - (dp + monthly * months);
+  const lastPayment = monthly + residual;
+  return { dp, remaining, monthly, totalCost: price, residual, lastPayment };
+}
+
+function indepMortgagePMT(price: number, dpPct: number, annualPct: number, months: number) {
+  const dp = Math.round(price * (dpPct / 100));
+  const principal = price - dp;
+  const r = annualPct / 100 / 12;
+  const rawMonthly = r === 0 ? principal / months : (principal * (r * Math.pow(1 + r, months))) / (Math.pow(1 + r, months) - 1);
+  const monthly = Math.round(rawMonthly);
+  const totalCost = dp + monthly * months;
+  const totalInterest = totalCost - price;
+  return { dp, principal, rawMonthly, monthly, totalCost, totalInterest };
+}
+
+const gtJson = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'benchmark', 'financial_ground_truth.json'), 'utf8')
+) as { cases: GroundTruthCase[] };
+
+for (const gt of gtJson.cases) {
+  if (gt.method === 'full') {
+    const oracle = indepFull(gt.basePriceKzt);
+    const calc = calcFullPayment(gt.basePriceKzt, gt.unitCode);
+    assert(
+      calc.total === gt.totalKzt && calc.total === oracle.total && calc.savings === gt.discountKzt && calc.dp === oracle.dp,
+      `P1.8 GroundTruth ${gt.id} (${gt.unitCode} full): total=${oracle.total}, savings=${oracle.savings}`,
+      `Got calc=${JSON.stringify(calc)}`
+    );
+  } else if (gt.method === 'installment') {
+    const dpPct = gt.downPaymentPct ?? 30;
+    const months = gt.termMonths ?? 36;
+    const oracle = indepInstallment(gt.basePriceKzt, dpPct, months);
+    const calc = calcInstallment(gt.basePriceKzt, gt.unitCode, dpPct, months);
+    const balancedSum = calc.dp + calc.monthly * (months - 1) + oracle.lastPayment;
+    assert(
+      calc.dp === gt.downPaymentKzt &&
+        calc.dp === oracle.dp &&
+        calc.monthly === gt.monthlyKzt &&
+        calc.monthly === oracle.monthly &&
+        calc.total === gt.contractTotalKzt &&
+        oracle.residual === gt.roundingResidualKzt &&
+        balancedSum === oracle.totalCost &&
+        Math.abs(oracle.residual) <= Math.ceil(months / 2),
+      `P1.8 GroundTruth ${gt.id} (${gt.unitCode} 0% ${months}m): dp=${oracle.dp}, monthly=${oracle.monthly}, residual=${oracle.residual}, lastPayment=${oracle.lastPayment}`,
+      `Got calc=${JSON.stringify(calc)}, oracle=${JSON.stringify(oracle)}`
+    );
+  } else if (gt.method === 'mortgage') {
+    const dpPct = gt.downPaymentPct ?? 20;
+    const rate = gt.interestPctAnnual ?? 17;
+    const months = gt.termMonths ?? 240;
+    const oracle = indepMortgagePMT(gt.basePriceKzt, dpPct, rate, months);
+    const calc = calcMortgage(gt.basePriceKzt, gt.unitCode, dpPct, rate, months);
+    assert(
+      calc.dp === gt.downPaymentKzt &&
+        calc.dp === oracle.dp &&
+        calc.monthly === gt.monthlyKzt &&
+        calc.monthly === oracle.monthly &&
+        calc.total === gt.totalPaidKzt &&
+        calc.total === oracle.totalCost &&
+        Math.abs(calc.savings) === gt.totalInterestKzt &&
+        Math.abs(calc.monthly - oracle.rawMonthly) <= 0.5,
+      `P1.8 GroundTruth ${gt.id} (${gt.unitCode} ${rate}% ${months}m): dp=${oracle.dp}, monthly=${oracle.monthly}, total=${oracle.totalCost}`,
+      `Got calc=${JSON.stringify(calc)}, oracle=${JSON.stringify(oracle)}`
+    );
+  }
+}
+
+// Down payment helper & custom DP checks
+assert(calcDP(19_500_000, 'full') === Math.round(19_500_000 * 0.97), 'P1.8 calcDP full applies 3% discount');
+assert(calcDP(19_500_000, 'installment') === Math.round(19_500_000 * 0.30), 'P1.8 calcDP installment is 30%');
+assert(calcDP(19_500_000, 'mortgage') === Math.round(19_500_000 * 0.20), 'P1.8 calcDP mortgage is 20%');
+
+// Non-default 0% installments (12m, 18m, 24m, 36m) & rounding residual bounds
+for (const [unitCode, price, dpPct, tenor] of [
+  ['1V', 15_500_000, 30, 12],
+  ['1A', 13_749_400, 25, 18],
+  ['2A', 20_300_000, 40, 24],
+  ['3A', 32_500_000, 50, 36],
+] as const) {
+  const oracle = indepInstallment(price, dpPct, tenor);
+  const calc = calcInstallment(price, unitCode, dpPct, tenor);
+  const reconstructedTotal = calc.dp + calc.monthly * (tenor - 1) + oracle.lastPayment;
+  assert(
+    calc.dp === oracle.dp &&
+      calc.monthly === oracle.monthly &&
+      calc.total === oracle.totalCost &&
+      reconstructedTotal === price &&
+      Math.abs(oracle.residual) <= Math.ceil(tenor / 2),
+    `P1.8 Non-default 0% installment (${unitCode}, ${dpPct}% DP, ${tenor}m, residual=${oracle.residual} KZT)`
+  );
+}
+
+// Non-default >0% amortization (PMT formula)
+for (const [unitCode, price, dpPct, rate, tenor] of [
+  ['2B', 19_500_000, 30, 16, 120],
+  ['1V', 15_500_000, 20, 18, 60],
+] as const) {
+  const oracle = indepMortgagePMT(price, dpPct, rate, tenor);
+  const calc = calcMortgage(price, unitCode, dpPct, rate, tenor);
+  assert(
+    calc.dp === oracle.dp &&
+      calc.monthly === oracle.monthly &&
+      calc.total === oracle.totalCost &&
+      Math.abs(calc.monthly - oracle.rawMonthly) <= 0.5,
+    `P1.8 Custom >0% PMT amortization (${unitCode}, ${dpPct}% DP, ${rate}%, ${tenor}m)`
+  );
+}
+
+// Invalid input resilience on calculator.ts (no NaN, no Infinity, safe clamping)
+const invalidCalcChecks = [
+  calcFullPayment(-5_000_000, '1B'),
+  calcFullPayment(Number.NaN, '1B'),
+  calcInstallment(19_500_000, '2B', 30, 0),
+  calcInstallment(19_500_000, '2B', 30, -6),
+  calcInstallment(19_500_000, '2B', -15, 60),
+  calcInstallment(Number.POSITIVE_INFINITY, '2B', Number.NaN, Number.NaN),
+  calcMortgage(20_300_000, '2A', 20, 17, 0),
+  calcMortgage(20_300_000, '2A', 20, -5, -12),
+  calcMortgage(Number.NaN, '2A', 150, Number.NaN, Number.NaN),
+];
+assert(
+  invalidCalcChecks.every(
+    (c) =>
+      Number.isFinite(c.price) &&
+      Number.isFinite(c.dp) &&
+      Number.isFinite(c.monthly) &&
+      Number.isFinite(c.total) &&
+      Number.isFinite(c.tenor) &&
+      Number.isFinite(c.interestRate) &&
+      c.price >= 0 &&
+      c.dp >= 0 &&
+      c.monthly >= 0 &&
+      c.total >= 0
+  ),
+  'P1.8 calculator.ts invalid inputs return finite non-negative numbers with zero NaN/Infinity'
+);
 
 console.log('\n========================================================================');
 console.log(`  SUMMARY: ${passedTests} / ${totalTests} PRODUCTION MODULE TESTS PASSED (${((passedTests / totalTests) * 100).toFixed(1)}%)`);

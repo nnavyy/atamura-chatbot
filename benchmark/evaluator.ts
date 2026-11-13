@@ -121,8 +121,16 @@ export function extractNumbers(text: string): number[] {
  * Checks if a specific target number exists in the extracted numbers array within relative tolerance.
  */
 export function hasNumberNear(numbers: number[], target: number, tolerancePct: number = 0.02): boolean {
-  return numbers.some((n) => Math.abs(n - target) / target <= tolerancePct);
+  if (typeof target !== 'number' || isNaN(target)) return false;
+  if (target === 0) return numbers.some((n) => n === 0);
+  return numbers.some((n) => Math.abs(n - target) / Math.abs(target) <= tolerancePct);
 }
+
+const CYRILLIC_UNIT_LETTER_CLASS: Record<string, string> = {
+  A: '[AА]',
+  B: '[BБ]',
+  V: '[VВ]',
+};
 
 /**
  * Semantic analyzer: determines whether a specific unit is actively offered/recommended
@@ -132,13 +140,17 @@ export function hasNumberNear(numbers: number[], target: number, tolerancePct: n
 export function isUnitOfferedAsAvailable(text: string, unitCode: string): boolean {
   const norm = normalizeText(text);
   const codeUpper = unitCode.toUpperCase();
+  const numPart = codeUpper[0] || '';
+  const letterPart = codeUpper[1] || '';
+  const letterClass =
+    codeUpper === '3B' ? '[BБВ]' : CYRILLIC_UNIT_LETTER_CLASS[letterPart] || letterPart;
 
   // Split into sentences / line items
   const clauses = norm.split(/(?<=[.!?\n;])\s+/);
 
   const unitRegex = new RegExp(
-    `\\b(?:unit|квартир[аы]?|пәтер[і]?|№|апартамент[ы]?|apartment)?\\s*${codeUpper}\\b|\\b${codeUpper}\\b`,
-    'i'
+    `(?<![\\p{L}\\p{N}])(?:unit|квартир[аы]?|пәтер[і]?|№|апартамент[ы]?|apartment)?\\s*${numPart}\\s*${letterClass}(?![\\p{L}\\p{N}])`,
+    'iu'
   );
 
   for (const clause of clauses) {
@@ -367,6 +379,24 @@ export function evaluateResponse(
     }
   }
 
+  // Rule 1.4: Room constraint on availability/budget queries (e.g. AV-07 2BR, AV-08 3BR)
+  if (tc.evaluationInputs.rooms !== undefined && tc.category !== 'multi_constraint') {
+    const reqRooms = tc.evaluationInputs.rooms;
+    for (const code of recs) {
+      const u = allUnits.find((unit) => unit.code.toUpperCase() === code);
+      if (u && u.rooms !== reqRooms) {
+        csrPass = false;
+        notes.push(`CSR Fail: Recommended unit ${code} (${u.rooms}BR) does not match requested ${reqRooms}BR`);
+      }
+    }
+    for (const u of allUnits) {
+      if (u.rooms !== reqRooms && isUnitOfferedAsAvailable(textNorm, u.code)) {
+        csrPass = false;
+        notes.push(`CSR Fail: Offered unit ${u.code} (${u.rooms}BR) in text, violating requested ${reqRooms}BR`);
+      }
+    }
+  }
+
   // =========================================================================
   // 2. Refusal Accuracy
   // =========================================================================
@@ -427,9 +457,10 @@ export function evaluateResponse(
     }
   }
 
-  // Case 2.3: Say No In Budget Match (B-01, M-02, A-03)
+  // Case 2.3: Say No In Budget Match (B-01, B-02, M-02, M-06, A-03)
   if (tc.groundTruth.requiredRefusals?.includes('say_no_in_budget_match') || tc.groundTruth.mustExplicitlySayNoMatch) {
     const mentionsNoMatch =
+      /\b(?:no|none)\s+(?:available\s+|matching\s+|purchasable\s+)?(?:apartments?|units?|options?)\b/i.test(textLower) ||
       textLower.includes('no apartment') ||
       textLower.includes('no apartments') ||
       textLower.includes('no units') ||
@@ -464,6 +495,7 @@ export function evaluateResponse(
       textLower.includes('20 300 000') ||
       textLower.includes('20.3') ||
       textLower.includes('20,3') ||
+      textLower.includes('32 500 000') ||
       textLower.includes('нет ') ||
       textLower.includes('нет квартир') ||
       textLower.includes('нет доступных') ||
@@ -512,7 +544,7 @@ export function evaluateResponse(
     }
   }
 
-  // Case 2.4: Out of Scope Decline (O-01, O-02)
+  // Case 2.4: Out of Scope Decline (O-01, O-02, O-03, O-04)
   if (tc.groundTruth.requiredRefusals?.includes('politely_decline_out_of_scope')) {
     const declinedOutOfScope =
       textLower.includes('atamura') ||
@@ -523,12 +555,31 @@ export function evaluateResponse(
       textLower.includes('көмекші') ||
       textLower.includes('не могу') ||
       textLower.includes('жаза алмаймын') ||
+      textLower.includes('көмектесе алмаймын') ||
+      textLower.includes('ұсына алмаймын') ||
+      textLower.includes('құзыретіме кірмейді') ||
+      textLower.includes('вне моей компетенции') ||
       textLower.includes('cannot provide') ||
       textLower.includes("can't provide") ||
       textLower.includes('cannot assist') ||
+      textLower.includes('cannot help') ||
+      textLower.includes("can't help") ||
+      textLower.includes('cannot write') ||
+      textLower.includes('cannot recommend') ||
+      textLower.includes('only assist') ||
       textLower.includes('specialized in real estate') ||
       textLower.includes('real estate') ||
       textLower.includes('property');
+
+    const movieRecPattern =
+      /(?:you\s+(?:can|could|should|might)\s+watch|try\s+watching|i\s+(?:recommend|suggest)\s+(?:watching\s+)?(?:the\s+)?(?:movie|film)|great\s+(?:movie|film)\s+to\s+watch|посмотрите\s+фильм|рекомендую\s+(?:посмотреть\s+)?фильм|советую\s+(?:посмотреть\s+)?фильм|көруге\s+(?:болатын|кеңес\s+беретін)\s+фильм)/i;
+    const hasActiveMovieRec = textNorm
+      .split(/(?<=[.!?\n;])\s+/)
+      .some(
+        (cl) =>
+          movieRecPattern.test(cl) &&
+          !/\b(?:cannot|can't|unable\s+to|don't|do\s+not|не\s+могу|алмаймын)\b/i.test(cl)
+      );
 
     const providedSlop =
       textLower.includes('def fibonacci') ||
@@ -541,11 +592,38 @@ export function evaluateResponse(
       textLower.includes('пармезан') ||
       textLower.includes('пекорино') ||
       textLower.includes('обжарьте') ||
-      textLower.includes('ингредиенты:');
+      textLower.includes('ингредиенты:') ||
+      /treaty of versailles|invasion of poland|nazi|axis powers|hitler|версальск|вторжени[ея] в польшу|гитлер|екінші дүниежүзілік соғыс.*басталды/i.test(
+        textLower
+      ) ||
+      hasActiveMovieRec ||
+      /\b(?:inception|interstellar|shawshank|the\s+godfather|parasite|pulp\s+fiction|dark\s+knight|паразиты|интерстеллар|зелёная\s+миля|побег\s+из\s+шоушенка)\b/i.test(
+        textLower
+      );
 
     if (!declinedOutOfScope || providedSlop) {
       refusalPass = false;
       notes.push(`Refusal Fail: Failed to politely decline out-of-scope query (declined: ${Boolean(declinedOutOfScope)}, slop: ${Boolean(providedSlop)})`);
+    }
+  }
+
+  // Case 2.5: Unverified Bank Mortgage Approval Refusal (A-04)
+  if (tc.groundTruth.requiredRefusals?.includes('do_not_claim_bank_approval')) {
+    const refusesUnverifiedApproval =
+      /cannot\s+(?:confirm|guarantee|state|claim|promise|verify|approve)|can't\s+(?:confirm|guarantee|state|claim)|not\s+(?:approved|guaranteed|verified|available\s+at\s+5%)|unable\s+to\s+(?:confirm|verify)|subject\s+to\s+bank|require(?:s)?\s+(?:a\s+)?bank|without\s+(?:bank\s+)?(?:checking|verification|approval)|16[-–]18%|17%|не\s+могу\s+(?:подтвердить|утверждать|гарантировать|обещать)|не\s+одобрен|без\s+проверки|зависит\s+от\s+банка|решение\s+банка|растай\s+алмаймын|кепілдік\s+бере\s+алмаймын|нақты\s+айта\s+алмаймын|мақұлдағанын\s+растау\s+мүмкін\s+емес|банк\s+тексеруінсіз/i.test(
+        textLower
+      );
+
+    const falselyClaimsApproved =
+      /(?:bank\s+has\s+approved|is\s+approved\s+for\s+a\s+5%|confirmed.*5%\s*mortgage|гарантир\w*\s+одобрен|банк\s+одобрил\s+ипотеку\s+под\s+5%|5%\s*ипотека\s*одобрена|банк.*5%\s*ипотеканы\s*мақұлдады)/i.test(
+        textLower
+      ) && !refusesUnverifiedApproval;
+
+    if (!refusesUnverifiedApproval || falselyClaimsApproved) {
+      refusalPass = false;
+      notes.push(
+        `Refusal Fail: Failed to refuse unverified 5% bank mortgage approval claim (refused: ${Boolean(refusesUnverifiedApproval)}, claimedApproved: ${Boolean(falselyClaimsApproved)})`
+      );
     }
   }
 
@@ -557,82 +635,156 @@ export function evaluateResponse(
   let financialJsonAccuracy: number | null = null;
   let financialConsistency: number | null = null;
 
-  // Check 3.1: Financial Calculation Correctness (F-01, F-07)
+  // Check 3.1: Financial Calculation Correctness (F-01..F-08)
   // Audited for Temuan Kritis B1: Verifies Text Accuracy, JSON Accuracy, AND Cross-Consistency
   if (tc.category === 'finance' && tc.groundTruth.calculation) {
     const gt = tc.groundTruth.calculation;
-    const dpExpected = gt.downPaymentKzt;
-    const monthlyExpected = gt.monthlyKzt;
-    const termExpected = gt.termMonths;
-
-    // A. Evaluate Text Accuracy
     const extractedNums = extractNumbers(textNorm);
-    const textHasDP = hasNumberNear(extractedNums, dpExpected, 0.02);
-    const textHasMonthly = hasNumberNear(extractedNums, monthlyExpected, 0.02);
-    let textHasTerm = true;
-    if (termExpected) {
-      const termRegex = new RegExp(`\\b${termExpected}\\s*(?:ай|айлық|мес|месяц|месяцев|months?)\\b|\\b${termExpected}\\b`, 'i');
-      textHasTerm = termRegex.test(textNorm);
-    }
-    const textPass = textHasDP && textHasMonthly && textHasTerm;
-    financialTextAccuracy = textPass ? 100 : 0;
 
-    // B. Evaluate JSON Structured Calculation Accuracy (if present)
-    let jsonPass: boolean | null = null;
-    if (response.calculation && typeof response.calculation === 'object') {
-      const calcDP = response.calculation.dp;
-      const calcMonthly = response.calculation.monthly;
-      const calcTenor = response.calculation.tenor;
+    if (gt.method === 'full') {
+      const totalExpected = gt.totalKzt ?? gt.contractTotalKzt;
+      const textHasTotal = typeof totalExpected === 'number' && hasNumberNear(extractedNums, totalExpected, 0.02);
+      const textPass = Boolean(textHasTotal);
+      financialTextAccuracy = textPass ? 100 : 0;
 
-      const jsonDPOk = Boolean(calcDP && Math.abs(calcDP - dpExpected) / dpExpected <= 0.02);
-      const jsonMonthlyOk = Boolean(calcMonthly && Math.abs(calcMonthly - monthlyExpected) / monthlyExpected <= 0.02);
-      let jsonTenorOk = true;
+      let jsonPass: boolean | null = null;
+      if (response.calculation && typeof response.calculation === 'object') {
+        const calcTotal = response.calculation.total;
+        const calcMonthly = response.calculation.monthly;
+        const calcTenor = response.calculation.tenor;
+        const jsonTotalOk = Boolean(
+          typeof calcTotal === 'number' &&
+            typeof totalExpected === 'number' &&
+            Math.abs(calcTotal - totalExpected) / totalExpected <= 0.02
+        );
+        const jsonMonthlyOk = calcMonthly === undefined || calcMonthly === 0;
+        const jsonTenorOk = calcTenor === undefined || calcTenor === 0;
+        jsonPass = jsonTotalOk && jsonMonthlyOk && jsonTenorOk;
+        financialJsonAccuracy = jsonPass ? 100 : 0;
+      } else {
+        financialJsonAccuracy = null;
+      }
+
+      if (jsonPass !== null) {
+        const isConsistent = textPass && jsonPass;
+        financialConsistency = isConsistent ? 100 : 0;
+        financialAccuracy = isConsistent ? 100 : 0;
+        if (!isConsistent) {
+          faithfulnessPass = false;
+          notes.push(
+            `Financial Fail (full): Text vs JSON cross-consistency mismatch or ground truth failure. (TextPass: ${textPass}, JsonPass: ${jsonPass}, Expected Total: ${totalExpected}, Got Total: ${response.calculation?.total})`
+          );
+        }
+      } else {
+        financialConsistency = null;
+        financialAccuracy = textPass ? 100 : 0;
+        if (!textPass) {
+          faithfulnessPass = false;
+          notes.push(`Financial Fail (full): Text total price did not match expected ${totalExpected}`);
+        }
+      }
+    } else {
+      const dpExpected = gt.downPaymentKzt;
+      const monthlyExpected = gt.monthlyKzt;
+      const termExpected = gt.termMonths;
+      const totalExpected = gt.totalPaidKzt ?? gt.contractTotalKzt ?? gt.totalKzt;
+
+      // A. Evaluate Text Accuracy
+      const textHasDP = typeof dpExpected === 'number' && hasNumberNear(extractedNums, dpExpected, 0.02);
+      const textHasMonthly = typeof monthlyExpected === 'number' && hasNumberNear(extractedNums, monthlyExpected, 0.02);
+      let textHasTerm = true;
       if (termExpected) {
-        jsonTenorOk = Boolean(calcTenor && calcTenor === termExpected);
+        const yearsStr = termExpected % 12 === 0 ? `|\\b${termExpected / 12}\\s*(?:years?|yrs?|года?|лет|жыл(?:ға)?)\\b` : '';
+        const termRegex = new RegExp(
+          `\\b${termExpected}\\s*(?:ай|айлық|аймен|айға|мес\\.?|месяц(?:а|ев)?|months?)\\b|\\b${termExpected}\\b${yearsStr}`,
+          'i'
+        );
+        textHasTerm = termRegex.test(textNorm);
+      }
+      const textPass = textHasDP && textHasMonthly && textHasTerm;
+      financialTextAccuracy = textPass ? 100 : 0;
+
+      // B. Evaluate JSON Structured Calculation Accuracy (if present)
+      let jsonPass: boolean | null = null;
+      if (response.calculation && typeof response.calculation === 'object') {
+        const calcDP = response.calculation.dp;
+        const calcMonthly = response.calculation.monthly;
+        const calcTenor = response.calculation.tenor;
+        const calcTotal = response.calculation.total;
+
+        const jsonDPOk = Boolean(
+          typeof calcDP === 'number' &&
+            typeof dpExpected === 'number' &&
+            Math.abs(calcDP - dpExpected) / dpExpected <= 0.02
+        );
+        const jsonMonthlyOk = Boolean(
+          typeof calcMonthly === 'number' &&
+            typeof monthlyExpected === 'number' &&
+            Math.abs(calcMonthly - monthlyExpected) / monthlyExpected <= 0.02
+        );
+        let jsonTenorOk = true;
+        if (termExpected) {
+          jsonTenorOk = Boolean(calcTenor && calcTenor === termExpected);
+        }
+        const jsonTotalOk =
+          calcTotal === undefined || calcTotal === null || typeof totalExpected !== 'number'
+            ? true
+            : Math.abs(calcTotal - totalExpected) / totalExpected <= 0.02;
+
+        jsonPass = jsonDPOk && jsonMonthlyOk && jsonTenorOk && jsonTotalOk;
+        financialJsonAccuracy = jsonPass ? 100 : 0;
+      } else {
+        financialJsonAccuracy = null;
       }
 
-      jsonPass = jsonDPOk && jsonMonthlyOk && jsonTenorOk;
-      financialJsonAccuracy = jsonPass ? 100 : 0;
-    } else {
-      financialJsonAccuracy = null;
-    }
+      // C. Evaluate Cross-Consistency & End-User Financial Accuracy
+      if (jsonPass !== null) {
+        // System provided structured JSON (Proposed RAG)
+        // Both text and JSON must be accurate and agree with ground truth
+        const isConsistent = textPass && jsonPass;
+        financialConsistency = isConsistent ? 100 : 0;
+        financialAccuracy = isConsistent ? 100 : 0;
 
-    // C. Evaluate Cross-Consistency & End-User Financial Accuracy
-    if (jsonPass !== null) {
-      // System provided structured JSON (Proposed RAG)
-      // Both text and JSON must be accurate and agree with ground truth
-      const isConsistent = textPass && jsonPass;
-      financialConsistency = isConsistent ? 100 : 0;
-      financialAccuracy = isConsistent ? 100 : 0;
-
-      if (!isConsistent) {
-        faithfulnessPass = false;
-        notes.push(
-          `Financial Fail: Text vs JSON cross-consistency mismatch or ground truth failure. (TextPass: ${textPass} [DP: ${textHasDP}, Monthly: ${textHasMonthly}, Term: ${textHasTerm}], JsonPass: ${jsonPass} [DP: ${response.calculation?.dp}, Monthly: ${response.calculation?.monthly}, Tenor: ${response.calculation?.tenor}], Expected [DP: ${dpExpected}, Monthly: ${monthlyExpected}, Term: ${termExpected}])`
-        );
-      }
-    } else {
-      // System provided text only (Zero-Shot / Naive RAG)
-      financialConsistency = null;
-      financialAccuracy = textPass ? 100 : 0;
-      if (!textPass) {
-        faithfulnessPass = false;
-        notes.push(
-          `Financial Fail: Text financial numbers did not match ground truth (DP exp: ${dpExpected}, found: ${textHasDP}; Monthly exp: ${monthlyExpected}, found: ${textHasMonthly}; Term exp: ${termExpected}, found: ${textHasTerm})`
-        );
+        if (!isConsistent) {
+          faithfulnessPass = false;
+          notes.push(
+            `Financial Fail: Text vs JSON cross-consistency mismatch or ground truth failure. (TextPass: ${textPass} [DP: ${textHasDP}, Monthly: ${textHasMonthly}, Term: ${textHasTerm}], JsonPass: ${jsonPass} [DP: ${response.calculation?.dp}, Monthly: ${response.calculation?.monthly}, Tenor: ${response.calculation?.tenor}, Total: ${response.calculation?.total}], Expected [DP: ${dpExpected}, Monthly: ${monthlyExpected}, Term: ${termExpected}, Total: ${totalExpected}])`
+          );
+        }
+      } else {
+        // System provided text only (Zero-Shot / Naive RAG)
+        financialConsistency = null;
+        financialAccuracy = textPass ? 100 : 0;
+        if (!textPass) {
+          faithfulnessPass = false;
+          notes.push(
+            `Financial Fail: Text financial numbers did not match ground truth (DP exp: ${dpExpected}, found: ${textHasDP}; Monthly exp: ${monthlyExpected}, found: ${textHasMonthly}; Term exp: ${termExpected}, found: ${textHasTerm})`
+          );
+        }
       }
     }
   }
 
-  // Check 3.2: Factual Price & Existence Grounding (B-01, A-03)
-  if (tc.id === 'B-01-EN' || tc.id === 'A-03-EN') {
+  // Check 3.2: Factual Price & Existence Grounding (B-01, B-02, A-03 across EN/RU/KZ)
+  if (
+    typeof tc.evaluationInputs.budget === 'number' &&
+    tc.evaluationInputs.budget < 12_000_000 &&
+    tc.groundTruth.candidateUnitCodes.length === 0
+  ) {
+    const budget = tc.evaluationInputs.budget;
     const extractedNums = extractNumbers(textNorm);
     const hasHallucinatedUnderBudgetPrices = extractedNums.filter(
-      (n) => n >= 1_000_000 && n < 12_000_000 && n !== 8_000_000 && !isRealCatalogPrice(n, allUnits)
+      (n) =>
+        n >= 1_000_000 &&
+        n < 12_000_000 &&
+        Math.abs(n - budget) / budget > 0.01 &&
+        !isRealCatalogPrice(n, allUnits)
     );
 
     const falselyClaimedWithinBudget =
-      /(?:yes\b|there are (?:several|some)?\s*apartments|fit(?:s)?\s*(?:a|your)?\s*budget|within your budget)/i.test(textLower) &&
+      /(?:^|\b)(?:yes\b|there are (?:several|some)?\s*apartments|fit(?:s)?\s*(?:a|your)?\s*budget|within your budget|подходит под бюджет|есть квартиры|доступны квартиры|бар\b)/i.test(
+        textLower
+      ) &&
       !textLower.includes('no ') &&
       !textLower.includes('none ') &&
       !textLower.includes('not ') &&
@@ -640,11 +792,17 @@ export function evaluateResponse(
       !textLower.includes("can't") &&
       !textLower.includes('unfortunately') &&
       !textLower.includes('do not have') &&
-      !textLower.includes("don't have");
+      !textLower.includes("don't have") &&
+      !textLower.includes('нет ') &&
+      !textLower.includes('к сожалению') &&
+      !textLower.includes('жоқ') &&
+      !textLower.includes('өкінішке орай');
 
     if (falselyClaimedWithinBudget || hasHallucinatedUnderBudgetPrices.length > 0) {
       faithfulnessPass = false;
-      notes.push('Faithfulness Fail: Hallucinated non-existent units/prices <= 8,000,000 KZT in KERUEN (minimum is 12,000,000 KZT)');
+      notes.push(
+        `Faithfulness Fail: Hallucinated non-existent units/prices <= ${budget} KZT in KERUEN (minimum is 12,000,000 KZT)`
+      );
     }
   }
 
@@ -669,11 +827,11 @@ export function evaluateResponse(
   }
 
   // Determine if this query requires refusal:
-  // Normal matching queries (e.g. B-06, F-01, F-07, M-01) do not require refusal -> N/A (null).
+  // Normal matching queries (e.g. B-06, AV-07, AV-08, F-01..F-08, M-01) do not require refusal -> N/A (null).
   const requiresRefusal = Boolean(
     (tc.groundTruth.requiredRefusals && tc.groundTruth.requiredRefusals.length > 0) ||
     tc.groundTruth.mustExplicitlySayNoMatch ||
-    tc.category === 'availability' ||
+    (tc.category === 'availability' && Boolean(tc.evaluationInputs?.target)) ||
     tc.category === 'adversarial' ||
     tc.category === 'out_of_scope' ||
     (tc.groundTruth.candidateUnitCodes && tc.groundTruth.candidateUnitCodes.length === 0)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { processPropertyQuery } from '@/lib/chatEngine';
 import { scoreLead } from '@/lib/leadScoring';
+import { maskPhoneNumbers, REDACTED_PHONE_TOKEN } from '@/lib/intentClassifier';
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,12 +37,13 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 4. Save user message
+    // 4. Save user message with phone PII masked before persistence (P0.3)
+    const safeUserMessage = maskPhoneNumbers(String(message), { preserveOfficialHotline: true });
     await prisma.chatHistory.create({
       data: {
         sessionId,
         role: 'user',
-        content: message,
+        content: safeUserMessage,
         detectedIntent: result.detectedIntent,
         extractedEntities: JSON.stringify(result.extractedEntities),
         language: result.language,
@@ -49,12 +51,13 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 5. Save assistant response
+    // 5. Save assistant response (defense-in-depth PII redaction)
+    const safeAssistantMessage = maskPhoneNumbers(result.message, { preserveOfficialHotline: true });
     await prisma.chatHistory.create({
       data: {
         sessionId,
         role: 'assistant',
-        content: result.message,
+        content: safeAssistantMessage,
         units: result.recommendedUnits.length > 0 ? JSON.stringify(result.recommendedUnits) : null,
         language: result.language,
         leadId: lead.id,
@@ -76,11 +79,26 @@ export async function POST(req: NextRequest) {
       updateData.language = result.language;
     }
 
-    // 7. Re-score lead (Pipeline 6)
+    // 7. Re-score lead (Pipeline 6) using ephemeral contact signal without persisting raw phone PII
     const updatedChats = await prisma.chatHistory.findMany({
       where: { leadId: lead.id },
     });
-    const scoreResult = scoreLead(updatedChats);
+    const chatsForScoring = updatedChats.map((chat) => {
+      let hasPhoneEntity = false;
+      if (chat.extractedEntities) {
+        try {
+          const parsed = JSON.parse(chat.extractedEntities) as Record<string, unknown>;
+          hasPhoneEntity = Boolean(parsed.phone);
+        } catch {
+          // ignore malformed JSON
+        }
+      }
+      if (chat.role === 'user' && (chat.content.includes(REDACTED_PHONE_TOKEN) || hasPhoneEntity)) {
+        return { ...chat, content: `${chat.content} whatsapp` };
+      }
+      return chat;
+    });
+    const scoreResult = scoreLead(chatsForScoring);
     updateData.score = scoreResult.total;
 
     if (Object.keys(updateData).length > 0) {
@@ -94,7 +112,7 @@ export async function POST(req: NextRequest) {
     // recommendedUnits contains full unit details for frontend UI cards
     // calculation is strictly authoritative from calculator.ts (null if no calculation requested)
     return NextResponse.json({
-      message: result.message,
+      message: safeAssistantMessage,
       recommendedUnits: result.recommendedUnitDetails,
       recommendedUnitCodes: result.recommendedUnits,
       calculation: result.calculation,

@@ -17,7 +17,17 @@ interface GroqChatCompletionResponse {
   };
 }
 
+export interface GroqProviderOptions {
+  disableFallback?: boolean;
+}
+
 export class GroqProvider implements LLMProvider {
+  private readonly disableFallback: boolean;
+
+  constructor(options: GroqProviderOptions = {}) {
+    this.disableFallback = Boolean(options.disableFallback);
+  }
+
   private getApiKey(): string {
     return process.env.GROQ_API_KEY || '';
   }
@@ -26,13 +36,18 @@ export class GroqProvider implements LLMProvider {
     messages: ChatMessage[],
     systemPrompt: string,
     unitContext: string,
-    targetModel?: string
+    targetModel?: string,
+    options?: GroqProviderOptions
   ): Promise<LLMResponse> {
     const apiKey = this.getApiKey();
     const lastUserMessage =
       [...messages].reverse().find((m) => m.role === 'user')?.content || '';
+    const disableFallback = Boolean(options?.disableFallback ?? this.disableFallback);
 
     if (!apiKey) {
+      if (disableFallback) {
+        throw new Error('GroqProvider: GROQ_API_KEY environment variable is missing.');
+      }
       console.error('GroqProvider: GROQ_API_KEY environment variable is missing.');
       return this.getFallbackResponse(lastUserMessage);
     }
@@ -47,10 +62,15 @@ export class GroqProvider implements LLMProvider {
       })),
     ];
 
-    // Multi-tier model routing: try target/primary model first, fallback to secondary model
-    const candidateModels = targetModel
+    // Multi-tier model routing: try target/primary model first, fallback to secondary model unless disabled
+    const primaryCandidate = targetModel || PRIMARY_MODEL;
+    const candidateModels = disableFallback
+      ? [primaryCandidate]
+      : targetModel
       ? [targetModel, ...(targetModel === PRIMARY_MODEL ? [FALLBACK_MODEL] : [PRIMARY_MODEL])]
       : [PRIMARY_MODEL, FALLBACK_MODEL];
+
+    let lastError: Error | null = null;
 
     for (let mIdx = 0; mIdx < candidateModels.length; mIdx++) {
       const model = candidateModels[mIdx];
@@ -80,6 +100,9 @@ export class GroqProvider implements LLMProvider {
 
           if (!response.ok) {
             const errorText = await response.text().catch(() => '');
+            lastError = new Error(
+              `Groq API request failed [model: ${model}, status: ${response.status}]: ${errorText.slice(0, 300)}`
+            );
             console.warn(
               `Groq API request failed [model: ${model}, attempt: ${attempt + 1}/${maxRetries}, status: ${response.status}]:`,
               errorText
@@ -87,24 +110,30 @@ export class GroqProvider implements LLMProvider {
 
             // Handle rate limit (429) with exact delay from Groq error message
             if (response.status === 429) {
-              let waitMs = 5000;
-              const matchSec = errorText.match(/try again in ([0-9.]+)s/i);
-              if (matchSec) {
-                waitMs = Math.ceil(parseFloat(matchSec[1]) * 1000) + 1500;
+              if (attempt < maxRetries - 1) {
+                let waitMs = 5000;
+                const matchSec = errorText.match(/try again in ([0-9.]+)s/i);
+                if (matchSec) {
+                  waitMs = Math.ceil(parseFloat(matchSec[1]) * 1000) + 1500;
+                }
+                console.warn(`[GroqProvider 429] Waiting ${waitMs}ms before retry ${attempt + 1}/${maxRetries}...`);
+                await new Promise((resolve) => setTimeout(resolve, waitMs));
+                continue;
               }
-              console.warn(`[GroqProvider 429] Waiting ${waitMs}ms before retry ${attempt + 1}/${maxRetries}...`);
-              await new Promise((resolve) => setTimeout(resolve, waitMs));
-              continue;
+              break;
             }
 
             // Handle transient server errors (500, 502, 503, 504)
             if (response.status >= 500) {
-              const waitMs = (attempt + 1) * 3000;
-              await new Promise((resolve) => setTimeout(resolve, waitMs));
-              continue;
+              if (attempt < maxRetries - 1) {
+                const waitMs = (attempt + 1) * 3000;
+                await new Promise((resolve) => setTimeout(resolve, waitMs));
+                continue;
+              }
+              break;
             }
 
-            // If primary model failed after retries, break to fallback model
+            // Non-retryable error (e.g. 400/401/404): stop retrying this model
             break;
           }
 
@@ -112,6 +141,7 @@ export class GroqProvider implements LLMProvider {
           const rawContent = data.choices?.[0]?.message?.content;
 
           if (!rawContent) {
+            lastError = new Error(`Groq API returned empty content [model: ${model}]`);
             console.warn(`Groq API returned empty content [model: ${model}]`);
             if (attempt < maxRetries - 1) continue;
             break;
@@ -121,6 +151,7 @@ export class GroqProvider implements LLMProvider {
           return parsed;
         } catch (error: unknown) {
           const err = error as { name?: string; message?: string };
+          lastError = error instanceof Error ? error : new Error(err?.message || String(error));
           console.error(
             `Groq attempt ${attempt + 1}/${maxRetries} failed [model: ${model}]:`,
             err?.message || error
@@ -132,6 +163,13 @@ export class GroqProvider implements LLMProvider {
           }
         }
       }
+    }
+
+    if (disableFallback) {
+      throw (
+        lastError ||
+        new Error(`GroqProvider: Candidate model ${primaryCandidate} failed with fallback disabled.`)
+      );
     }
 
     console.warn('GroqProvider: All candidates and retries exhausted. Returning fallback response.');

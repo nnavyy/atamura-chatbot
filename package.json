@@ -8,7 +8,7 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx test-production-modules.ts && tsx benchmark/test-evaluator.ts"
+    "test": "tsx test-production-modules.ts && tsx test-chatengine-integration.ts && tsx benchmark/test-evaluator.ts && tsx benchmark/test-revisi8-suite.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
