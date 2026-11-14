@@ -64,7 +64,7 @@ Pada lingkungan pengembangan Windows dengan konfigurasi Git standar (`core.autoc
 | `benchmark_cases_jsonl` | `benchmark_cases.jsonl` | `121.833` B | `88B619396E28E6AED57F56187829FCCE0A783CC0707960FDA34FBBB9B17D60BC` | `121.953` B | `A0117A1863B7395F0CC8ACE6F82BCAA44B14392FDCE96A90156A4078BD003BD3` | `+120` B | `LF` (Node.js) |
 | `financial_ground_truth_json` | `financial_ground_truth.json` | `2.751` B | `DF7670EBBDF10375D8A001576E4F7005FBD6BAE19D63FAD53155BC1625494167` | `2.859` B | `7EB61585C47EF5DB12629FA67EC8CFE67FDB32B1CE75BB6E9134A64992A527E7` | `+108` B | `LF` (Node.js) |
 
-> **Tip Verifikasi Lintas Platform:** Untuk mendapatkan *working tree* yang seluruh berkasnya menggunakan `LF` persis seperti objek *blob* GitHub di Windows maupun Linux, jalankan `git clone -c core.autocrlf=false https://github.com/zafran434/atamura-chatbot.git -b revisi8-main-benchmark`.
+> **Tip Verifikasi Lintas Platform:** Untuk mendapatkan *working tree* yang seluruh berkasnya menggunakan `LF` persis seperti objek *blob* GitHub di Windows maupun Linux, jalankan `git clone -c core.autocrlf=false https://github.com/nnavyy/atamura-chatbot.git -b revisi8-main-benchmark`.
 
 ---
 
