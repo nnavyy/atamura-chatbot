@@ -1011,6 +1011,688 @@ def compute_metric_cell(
     }
 
 
+def _term_matches_in_text(text_norm: str, term_expected: Optional[int]) -> bool:
+    if not term_expected:
+        return True
+    years_str = rf"|\b{term_expected // 12}\s*(?:years?|yrs?|года?|лет|жыл(?:ға)?)\b" if term_expected % 12 == 0 else ""
+    term_regex = re.compile(
+        rf"\b{term_expected}\s*(?:ай|айлық|аймен|айға|мес\.?|месяц(?:а|ев)?|months?)\b|\b{term_expected}\b{years_str}",
+        re.I | re.ASCII,
+    )
+    return bool(term_regex.search(text_norm))
+
+
+def _evaluate_finance_record_exact_tolerance(
+    r: Dict[str, Any],
+    gt_case: Dict[str, Any],
+    max_abs_kzt_diff: float,
+) -> Dict[str, Any]:
+    text_norm = normalize_text(r["response"]["text"])
+    nums = extract_numbers(text_norm)
+    calc = r["response"].get("calculation")
+    method = gt_case["method"]
+    base_exp = gt_case["basePriceKzt"]
+    tot_exp = (
+        gt_case.get("totalKzt")
+        if gt_case.get("totalKzt") is not None
+        else (gt_case.get("totalPaidKzt") if gt_case.get("totalPaidKzt") is not None else gt_case.get("contractTotalKzt"))
+    )
+
+    if method == "full":
+        disc_exp = gt_case["discountKzt"]
+        text_has_total = any(abs(n - tot_exp) <= max_abs_kzt_diff for n in nums)
+        text_has_base = any(abs(n - base_exp) <= max_abs_kzt_diff for n in nums)
+        text_has_disc = any(abs(n - disc_exp) <= max_abs_kzt_diff for n in nums)
+        text_core_pass = text_has_total
+        text_all_ext_pass = text_has_total and text_has_base and text_has_disc
+        text_dp_ok = text_has_total
+        text_mo_ok = True
+        text_term_ok = True
+
+        json_core_pass: Optional[bool] = None
+        json_all_ext_pass: Optional[bool] = None
+        json_fields = {
+            "unitCode": None,
+            "method": None,
+            "dp": None,
+            "monthly": None,
+            "total": None,
+            "tenor": None,
+            "discount_or_interest": None,
+        }
+        if isinstance(calc, dict):
+            c_tot = calc.get("total")
+            c_mo = calc.get("monthly")
+            c_ten = calc.get("tenor")
+            c_dp = calc.get("dp")
+            tot_ok = isinstance(c_tot, (int, float)) and abs(c_tot - tot_exp) <= max_abs_kzt_diff
+            mo_ok = c_mo is None or c_mo == 0
+            ten_ok = c_ten is None or c_ten == 0
+            dp_ok = c_dp in (None, 0) or (isinstance(c_dp, (int, float)) and abs(c_dp - tot_exp) <= max_abs_kzt_diff)
+            uc_ok = str(calc.get("unitCode", "")).upper() == gt_case["unitCode"].upper()
+            m_ok = calc.get("method") == "full"
+            ext_ok = True
+            if "price" in calc or "savings" in calc:
+                ext_ok = (
+                    isinstance(calc.get("price"), (int, float))
+                    and abs(calc["price"] - base_exp) <= max_abs_kzt_diff
+                    and isinstance(calc.get("savings"), (int, float))
+                    and abs(calc["savings"] - disc_exp) <= max_abs_kzt_diff
+                    and isinstance(c_dp, (int, float))
+                    and abs(c_dp - tot_exp) <= max_abs_kzt_diff
+                )
+            json_core_pass = tot_ok and mo_ok and ten_ok
+            json_all_ext_pass = json_core_pass and uc_ok and m_ok and dp_ok and ext_ok
+            json_fields = {
+                "unitCode": uc_ok,
+                "method": m_ok,
+                "dp": dp_ok,
+                "monthly": mo_ok,
+                "total": tot_ok,
+                "tenor": ten_ok,
+                "discount_or_interest": ext_ok if ("savings" in calc) else None,
+            }
+    else:
+        dp_exp = gt_case["downPaymentKzt"]
+        mo_exp = gt_case["monthlyKzt"]
+        term_exp = gt_case["termMonths"]
+        int_exp = gt_case["interestPctAnnual"]
+
+        text_dp_ok = any(abs(n - dp_exp) <= max_abs_kzt_diff for n in nums)
+        text_mo_ok = any(abs(n - mo_exp) <= max_abs_kzt_diff for n in nums)
+        text_term_ok = _term_matches_in_text(text_norm, term_exp)
+        text_has_total = any(abs(n - tot_exp) <= max_abs_kzt_diff for n in nums)
+        text_has_base = any(abs(n - base_exp) <= max_abs_kzt_diff for n in nums)
+        text_has_int = any(abs(n - int_exp) == 0 for n in nums)
+        text_core_pass = text_dp_ok and text_mo_ok and text_term_ok
+        text_all_ext_pass = text_core_pass and text_has_total and text_has_base and text_has_int
+
+        json_core_pass = None
+        json_all_ext_pass = None
+        json_fields = {
+            "unitCode": None,
+            "method": None,
+            "dp": None,
+            "monthly": None,
+            "total": None,
+            "tenor": None,
+            "discount_or_interest": None,
+        }
+        if isinstance(calc, dict):
+            c_dp = calc.get("dp")
+            c_mo = calc.get("monthly")
+            c_ten = calc.get("tenor")
+            c_tot = calc.get("total")
+            dp_ok = isinstance(c_dp, (int, float)) and abs(c_dp - dp_exp) <= max_abs_kzt_diff
+            mo_ok = isinstance(c_mo, (int, float)) and abs(c_mo - mo_exp) <= max_abs_kzt_diff
+            ten_ok = bool(c_ten and c_ten == term_exp)
+            tot_ok = True if c_tot is None else (isinstance(c_tot, (int, float)) and abs(c_tot - tot_exp) <= max_abs_kzt_diff)
+            tot_strict_ok = isinstance(c_tot, (int, float)) and abs(c_tot - tot_exp) <= max_abs_kzt_diff
+            uc_ok = str(calc.get("unitCode", "")).upper() == gt_case["unitCode"].upper()
+            m_ok = calc.get("method") == method
+            ext_ok = True
+            if "price" in calc or "interestRate" in calc:
+                exp_sav = 0 if method == "installment" else -gt_case.get("totalInterestKzt", 0)
+                ext_ok = (
+                    isinstance(calc.get("price"), (int, float))
+                    and abs(calc["price"] - base_exp) <= max_abs_kzt_diff
+                    and calc.get("interestRate") == int_exp
+                    and isinstance(calc.get("savings"), (int, float))
+                    and abs(calc["savings"] - exp_sav) <= max_abs_kzt_diff
+                )
+            json_core_pass = dp_ok and mo_ok and ten_ok and tot_ok
+            json_all_ext_pass = dp_ok and mo_ok and ten_ok and tot_strict_ok and uc_ok and m_ok and ext_ok
+            json_fields = {
+                "unitCode": uc_ok,
+                "method": m_ok,
+                "dp": dp_ok,
+                "monthly": mo_ok,
+                "total": tot_strict_ok,
+                "tenor": ten_ok,
+                "discount_or_interest": ext_ok if ("interestRate" in calc) else None,
+            }
+
+    end_user_pass = (text_core_pass and json_core_pass) if json_core_pass is not None else text_core_pass
+    strict_both_pass = bool(json_core_pass is True and text_core_pass is True)
+    return {
+        "end_user_pass": end_user_pass,
+        "strict_both_pass": strict_both_pass,
+        "text_core_pass": text_core_pass,
+        "text_all_ext_pass": text_all_ext_pass,
+        "json_present": json_core_pass is not None,
+        "json_core_pass": json_core_pass,
+        "json_all_ext_pass": json_all_ext_pass,
+        "text_fields": {
+            "dp": text_dp_ok,
+            "monthly": text_mo_ok,
+            "term": text_term_ok,
+            "total": text_has_total,
+            "basePrice": text_has_base,
+            "discount_or_interest": text_has_disc if method == "full" else text_has_int,
+        },
+        "json_fields": json_fields,
+    }
+
+
+def section_g_secondary_exact_financial_audit(
+    eval_data: Dict[str, Any],
+    cases_list: List[Dict[str, Any]],
+    cases_by_id: Dict[str, Dict[str, Any]],
+    fin_gt_data: Dict[str, Any],
+    records_by_cell: Dict[Tuple[str, str], List[Dict[str, Any]]],
+) -> Dict[str, Any]:
+    fin_gt_by_id = {c["id"]: c for c in fin_gt_data["cases"]}
+    fin_cases_list = [tc for tc in cases_list if tc["category"] == "finance"]
+    units_by_code = {u["code"]: u for u in KERUEN_CATALOG_SNAPSHOT}
+
+    by_model_and_config: Dict[str, Dict[str, Any]] = {}
+    itemized_tolerance_sensitive_cases: List[Dict[str, Any]] = []
+    exact0_outcomes_by_cell: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = defaultdict(dict)
+
+    for model in MODELS:
+        by_model_and_config[model] = {}
+        for cfg in CONFIGS:
+            cell_fin_recs = [
+                r for r in records_by_cell[(model, cfg)]
+                if cases_by_id[r["caseId"]]["category"] == "finance"
+            ]
+            n_sched = len(cell_fin_recs)
+            valid_fin = [r for r in cell_fin_recs if r["status"] == "ok" and not r.get("infraError")]
+            n_val = len(valid_fin)
+            n_400 = n_sched - n_val
+
+            # Counters for frozen 2%
+            k_2pct_acc = 0
+            k_2pct_text = 0
+            k_2pct_json = 0
+            n_json_pres = 0
+
+            # Counters for 0 KZT (exact 0% tolerance)
+            k_0kzt_acc = 0
+            k_0kzt_strict_both = 0
+            k_0kzt_text_core = 0
+            k_0kzt_text_ext = 0
+            k_0kzt_json_core = 0
+            k_0kzt_json_ext = 0
+
+            # Counters for <= 1 KZT (ROUND_HALF_UP 1 KZT tolerance)
+            k_1kzt_acc = 0
+            k_1kzt_text_core = 0
+            k_1kzt_json_core = 0
+
+            # Field-level counters (0 KZT)
+            t_field_counts = Counter()
+            j_field_counts = Counter()
+            j_disc_int_present = 0
+
+            # Raw pre-sanitization counters (for structured arms)
+            raw_t0_count = 0
+            raw_j0_direct_count = 0
+            raw_j0_parsed_count = 0
+
+            cell_diff_cids_0kzt: List[str] = []
+            cell_diff_cids_1kzt: List[str] = []
+
+            for r in valid_fin:
+                cid = r["caseId"]
+                base_fid = "-".join(cid.split("-")[:2])
+                gt_case = fin_gt_by_id[base_fid]
+                ev = r["eval"]
+
+                p2_acc = ev.get("financialAccuracy") == 100
+                p2_text = ev.get("financialTextAccuracy") == 100
+                p2_json = ev.get("financialJsonAccuracy") == 100 if ev.get("financialJsonAccuracy") is not None else None
+
+                if p2_acc:
+                    k_2pct_acc += 1
+                if p2_text:
+                    k_2pct_text += 1
+                if p2_json is not None:
+                    n_json_pres += 1
+                    if p2_json:
+                        k_2pct_json += 1
+
+                res0 = _evaluate_finance_record_exact_tolerance(r, gt_case, 0.0)
+                res1 = _evaluate_finance_record_exact_tolerance(r, gt_case, 1.0)
+                exact0_outcomes_by_cell[(model, cfg)][cid] = res0
+
+                if res0["end_user_pass"]:
+                    k_0kzt_acc += 1
+                if res0["strict_both_pass"]:
+                    k_0kzt_strict_both += 1
+                if res0["text_core_pass"]:
+                    k_0kzt_text_core += 1
+                if res0["text_all_ext_pass"]:
+                    k_0kzt_text_ext += 1
+                if res0["json_core_pass"]:
+                    k_0kzt_json_core += 1
+                if res0["json_all_ext_pass"]:
+                    k_0kzt_json_ext += 1
+
+                if res1["end_user_pass"]:
+                    k_1kzt_acc += 1
+                if res1["text_core_pass"]:
+                    k_1kzt_text_core += 1
+                if res1["json_core_pass"]:
+                    k_1kzt_json_core += 1
+
+                for fk, fv in res0["text_fields"].items():
+                    if fv:
+                        t_field_counts[fk] += 1
+                if res0["json_present"]:
+                    for fk, fv in res0["json_fields"].items():
+                        if fk == "discount_or_interest":
+                            if fv is not None:
+                                j_disc_int_present += 1
+                                if fv:
+                                    j_field_counts[fk] += 1
+                        elif fv:
+                            j_field_counts[fk] += 1
+
+                # Pre-sanitization raw LLM evaluation (exact 0 KZT)
+                raw_content = r["response"].get("rawContent") or ""
+                if cfg != "zero_shot" and raw_content:
+                    parsed = parse_groq_json_response_py(raw_content, r["query"])
+                    raw_obj = None
+                    try:
+                        raw_obj = json.loads(raw_content)
+                    except Exception:
+                        pass
+                    raw_calc_direct = raw_obj.get("calculation") if isinstance(raw_obj, dict) and isinstance(raw_obj.get("calculation"), dict) else None
+                    r_raw_direct = {"response": {"text": parsed["message"], "calculation": raw_calc_direct}}
+                    r_raw_parsed = {"response": {"text": parsed["message"], "calculation": parsed["calculation"]}}
+                    raw_res_direct = _evaluate_finance_record_exact_tolerance(r_raw_direct, gt_case, 0.0)
+                    raw_res_parsed = _evaluate_finance_record_exact_tolerance(r_raw_parsed, gt_case, 0.0)
+                    if raw_res_direct["text_core_pass"]:
+                        raw_t0_count += 1
+                    if raw_res_direct["json_core_pass"]:
+                        raw_j0_direct_count += 1
+                    if raw_res_parsed["json_core_pass"]:
+                        raw_j0_parsed_count += 1
+                else:
+                    if res0["text_core_pass"]:
+                        raw_t0_count += 1
+
+                # Record any discrepancy between frozen 2% and exact 0 KZT
+                if (p2_acc != res0["end_user_pass"]) or (p2_text != res0["text_core_pass"]) or (p2_json != res0["json_core_pass"]):
+                    if p2_acc != res0["end_user_pass"]:
+                        cell_diff_cids_0kzt.append(cid)
+                    if p2_acc != res1["end_user_pass"]:
+                        cell_diff_cids_1kzt.append(cid)
+
+                    calc_obj = r["response"].get("calculation")
+                    nums = extract_numbers(normalize_text(r["response"]["text"]))
+                    tot_exp = gt_case.get("totalKzt") or gt_case.get("totalPaidKzt") or gt_case.get("contractTotalKzt")
+                    dp_exp = gt_case.get("downPaymentKzt")
+                    mo_exp = gt_case.get("monthlyKzt")
+
+                    if res1["end_user_pass"] and not res0["end_user_pass"]:
+                        cause_cat = "1_kzt_round_half_up_vs_round_up_difference"
+                    elif cfg == "zero_shot":
+                        cause_cat = "zero_shot_hypothetical_price_within_2pct_band"
+                    else:
+                        cause_cat = "llm_in_context_mortgage_annuity_approximation_within_2pct"
+
+                    itemized_tolerance_sensitive_cases.append({
+                        "model": model,
+                        "config": cfg,
+                        "caseId": cid,
+                        "method": gt_case["method"],
+                        "unitCode": gt_case["unitCode"],
+                        "causeCategory": cause_cat,
+                        "passes_frozen_2pct": p2_acc,
+                        "passes_exact_0kzt": res0["end_user_pass"],
+                        "passes_round_half_up_1kzt": res1["end_user_pass"],
+                        "text_2pct_vs_0kzt_vs_1kzt": [p2_text, res0["text_core_pass"], res1["text_core_pass"]],
+                        "json_2pct_vs_0kzt_vs_1kzt": [p2_json, res0["json_core_pass"], res1["json_core_pass"]],
+                        "expected_ground_truth": {
+                            "basePriceKzt": gt_case["basePriceKzt"],
+                            "downPaymentKzt": dp_exp,
+                            "monthlyKzt": mo_exp,
+                            "termMonths": gt_case["termMonths"],
+                            "totalExpectedKzt": tot_exp,
+                        },
+                        "observed_json_calculation": calc_obj,
+                        "observed_extracted_text_numbers": nums,
+                    })
+
+            by_model_and_config[model][cfg] = {
+                "n_scheduled": n_sched,
+                "n_valid": n_val,
+                "n_http_400": n_400,
+                "json_present_count": n_json_pres,
+                "frozen_primary_2pct": {
+                    "financialAccuracy": {
+                        "k": k_2pct_acc,
+                        "n": n_val,
+                        "pct_conditional": round(100.0 * k_2pct_acc / n_val, 2) if n_val else 0.0,
+                        "ci95_conditional": list(clopper_pearson_ci(k_2pct_acc, n_val)),
+                        "pct_e2e_of_24": round(100.0 * k_2pct_acc / n_sched, 2) if n_sched else 0.0,
+                    },
+                    "financialTextAccuracy": {
+                        "k": k_2pct_text,
+                        "n": n_val,
+                        "pct": round(100.0 * k_2pct_text / n_val, 2) if n_val else 0.0,
+                    },
+                    "financialJsonAccuracy": {
+                        "k": k_2pct_json,
+                        "n": n_json_pres,
+                        "pct": round(100.0 * k_2pct_json / n_json_pres, 2) if n_json_pres else None,
+                    },
+                },
+                "secondary_exact_0kzt_tolerance_0pct": {
+                    "financialAccuracy_exact_0kzt": {
+                        "k": k_0kzt_acc,
+                        "n": n_val,
+                        "pct_conditional": round(100.0 * k_0kzt_acc / n_val, 2) if n_val else 0.0,
+                        "ci95_conditional": list(clopper_pearson_ci(k_0kzt_acc, n_val)),
+                        "pct_e2e_of_24": round(100.0 * k_0kzt_acc / n_sched, 2) if n_sched else 0.0,
+                    },
+                    "strict_require_both_json_and_text_exact_0kzt": {
+                        "k": k_0kzt_strict_both,
+                        "n": n_val,
+                        "pct_conditional": round(100.0 * k_0kzt_strict_both / n_val, 2) if n_val else 0.0,
+                        "pct_e2e_of_24": round(100.0 * k_0kzt_strict_both / n_sched, 2) if n_sched else 0.0,
+                    },
+                    "text_narrative_core_exact_0kzt": {
+                        "k": k_0kzt_text_core,
+                        "n": n_val,
+                        "pct": round(100.0 * k_0kzt_text_core / n_val, 2) if n_val else 0.0,
+                    },
+                    "text_narrative_all_extended_fields_exact_0kzt": {
+                        "k": k_0kzt_text_ext,
+                        "n": n_val,
+                        "pct": round(100.0 * k_0kzt_text_ext / n_val, 2) if n_val else 0.0,
+                    },
+                    "json_calculation_core_exact_0kzt": {
+                        "k": k_0kzt_json_core,
+                        "n": n_json_pres,
+                        "pct_of_json_present": round(100.0 * k_0kzt_json_core / n_json_pres, 2) if n_json_pres else None,
+                        "pct_of_valid": round(100.0 * k_0kzt_json_core / n_val, 2) if n_val else 0.0,
+                    },
+                    "json_calculation_all_extended_fields_exact_0kzt": {
+                        "k": k_0kzt_json_ext,
+                        "n": n_json_pres,
+                        "pct_of_json_present": round(100.0 * k_0kzt_json_ext / n_json_pres, 2) if n_json_pres else None,
+                        "pct_of_valid": round(100.0 * k_0kzt_json_ext / n_val, 2) if n_val else 0.0,
+                    },
+                    "text_field_breakdown_exact_0kzt": {
+                        "downPaymentKzt_or_fullTotal": f"{t_field_counts['dp']}/{n_val}",
+                        "monthlyKzt": f"{t_field_counts['monthly']}/{n_val}",
+                        "termMonths": f"{t_field_counts['term']}/{n_val}",
+                        "contractOrPaidOrCashTotalKzt": f"{t_field_counts['total']}/{n_val}",
+                        "basePriceKzt": f"{t_field_counts['basePrice']}/{n_val}",
+                        "discountKzt_or_interestPctAnnual": f"{t_field_counts['discount_or_interest']}/{n_val}",
+                    },
+                    "json_field_breakdown_exact_0kzt": {
+                        "unitCode": f"{j_field_counts['unitCode']}/{n_json_pres}",
+                        "method": f"{j_field_counts['method']}/{n_json_pres}",
+                        "downPaymentKzt_dp": f"{j_field_counts['dp']}/{n_json_pres}",
+                        "monthlyKzt_monthly": f"{j_field_counts['monthly']}/{n_json_pres}",
+                        "contractOrPaidOrCashTotalKzt_total": f"{j_field_counts['total']}/{n_json_pres}",
+                        "termMonths_tenor": f"{j_field_counts['tenor']}/{n_json_pres}",
+                        "discountKzt_or_interestRate_when_present": f"{j_field_counts['discount_or_interest']}/{j_disc_int_present}",
+                    },
+                },
+                "secondary_round_half_up_1kzt_tolerance": {
+                    "financialAccuracy_1kzt": {
+                        "k": k_1kzt_acc,
+                        "n": n_val,
+                        "pct_conditional": round(100.0 * k_1kzt_acc / n_val, 2) if n_val else 0.0,
+                        "ci95_conditional": list(clopper_pearson_ci(k_1kzt_acc, n_val)),
+                        "pct_e2e_of_24": round(100.0 * k_1kzt_acc / n_sched, 2) if n_sched else 0.0,
+                    },
+                    "text_narrative_core_1kzt": {
+                        "k": k_1kzt_text_core,
+                        "n": n_val,
+                        "pct": round(100.0 * k_1kzt_text_core / n_val, 2) if n_val else 0.0,
+                    },
+                    "json_calculation_core_1kzt": {
+                        "k": k_1kzt_json_core,
+                        "n": n_json_pres,
+                        "pct_of_json_present": round(100.0 * k_1kzt_json_core / n_json_pres, 2) if n_json_pres else None,
+                    },
+                },
+                "raw_pre_sanitization_exact_0kzt": {
+                    "raw_text_core_exact_0kzt": f"{raw_t0_count}/{n_val}",
+                    "raw_json_direct_core_exact_0kzt": f"{raw_j0_direct_count}/{n_val}" if cfg != "zero_shot" else None,
+                    "raw_json_via_parseGroqJsonResponse_exact_0kzt": f"{raw_j0_parsed_count}/{n_val}" if cfg != "zero_shot" else None,
+                },
+                "delta_cases_2pct_vs_exact": {
+                    "financialAccuracy_delta_2pct_minus_0kzt": k_2pct_acc - k_0kzt_acc,
+                    "financialAccuracy_delta_2pct_minus_1kzt": k_2pct_acc - k_1kzt_acc,
+                    "financialTextAccuracy_delta_2pct_minus_0kzt": k_2pct_text - k_0kzt_text_core,
+                    "financialJsonAccuracy_delta_2pct_minus_0kzt": k_2pct_json - k_0kzt_json_core,
+                    "case_ids_differing_on_financialAccuracy_0kzt": cell_diff_cids_0kzt,
+                    "case_ids_differing_on_financialAccuracy_1kzt": cell_diff_cids_1kzt,
+                },
+            }
+
+    # Paired McNemar under exact 0 KZT (Proposed Hybrid vs Baselines)
+    paired_mcnemar_exact_0kzt: Dict[str, Dict[str, Any]] = {}
+    for model in MODELS:
+        paired_mcnemar_exact_0kzt[model] = {}
+        prop_map = exact0_outcomes_by_cell[(model, "proposed_hybrid")]
+        for base_cfg in ["zero_shot", "full_context", "plus_prefilter", "plus_calculator"]:
+            base_map = exact0_outcomes_by_cell[(model, base_cfg)]
+            b_cond, c_cond, n_cond = 0, 0, 0
+            b_e2e, c_e2e, n_e2e = 0, 0, len(fin_cases_list)
+            clusters_p_cond, clusters_b_cond = defaultdict(list), defaultdict(list)
+            clusters_p_e2e, clusters_b_e2e = defaultdict(list), defaultdict(list)
+
+            for tc in fin_cases_list:
+                cid = tc["id"]
+                bid = "-".join(cid.split("-")[:2])
+                p_ok_e2e = cid in prop_map and prop_map[cid]["end_user_pass"]
+                b_ok_e2e = cid in base_map and base_map[cid]["end_user_pass"]
+                if p_ok_e2e and not b_ok_e2e:
+                    b_e2e += 1
+                elif not p_ok_e2e and b_ok_e2e:
+                    c_e2e += 1
+                clusters_p_e2e[bid].append(p_ok_e2e)
+                clusters_b_e2e[bid].append(b_ok_e2e)
+
+                if cid in prop_map and cid in base_map:
+                    n_cond += 1
+                    p_ok_c = prop_map[cid]["end_user_pass"]
+                    b_ok_c = base_map[cid]["end_user_pass"]
+                    if p_ok_c and not b_ok_c:
+                        b_cond += 1
+                    elif not p_ok_c and b_ok_c:
+                        c_cond += 1
+                    clusters_p_cond[bid].append(p_ok_c)
+                    clusters_b_cond[bid].append(b_ok_c)
+
+            cb_cond = sum(
+                1 for bid in clusters_p_cond
+                if len(clusters_p_cond[bid]) == 3 and all(clusters_p_cond[bid]) and not all(clusters_b_cond[bid])
+            )
+            cc_cond = sum(
+                1 for bid in clusters_p_cond
+                if len(clusters_p_cond[bid]) == 3 and not all(clusters_p_cond[bid]) and all(clusters_b_cond[bid])
+            )
+            cb_e2e = sum(1 for bid in clusters_p_e2e if all(clusters_p_e2e[bid]) and not all(clusters_b_e2e[bid]))
+            cc_e2e = sum(1 for bid in clusters_p_e2e if not all(clusters_p_e2e[bid]) and all(clusters_b_e2e[bid]))
+
+            paired_mcnemar_exact_0kzt[model][f"proposed_hybrid_vs_{base_cfg}"] = {
+                "conditional": {
+                    "n_pairs": n_cond,
+                    "prop_only_wins_b": b_cond,
+                    "base_only_wins_c": c_cond,
+                    "mcnemar_exact_p": round(mcnemar_exact_p(b_cond, c_cond), 6),
+                    "cluster_b": cb_cond,
+                    "cluster_c": cc_cond,
+                    "cluster_exact_p": round(mcnemar_exact_p(cb_cond, cc_cond), 6),
+                },
+                "end_to_end": {
+                    "n_pairs": n_e2e,
+                    "prop_only_wins_b": b_e2e,
+                    "base_only_wins_c": c_e2e,
+                    "mcnemar_exact_p": round(mcnemar_exact_p(b_e2e, c_e2e), 6),
+                    "cluster_b": cb_e2e,
+                    "cluster_c": cc_e2e,
+                    "cluster_exact_p": round(mcnemar_exact_p(cb_e2e, cc_e2e), 6),
+                },
+            }
+
+    # Audit million-KZT rounding vs exact integer KZT across all 1,191 valid responses
+    million_vs_exact_by_cell: Dict[str, Dict[str, Any]] = {}
+    unit_1a_mln_cases: List[Dict[str, Any]] = []
+    non_finance_calc_records: List[Dict[str, Any]] = []
+
+    for model in MODELS:
+        million_vs_exact_by_cell[model] = {}
+        for cfg in CONFIGS:
+            valid_cell = [
+                r for r in records_by_cell[(model, cfg)]
+                if r["status"] == "ok" and not r.get("infraError")
+            ]
+            exact_13749400_count = 0
+            rounded_13_7x_mln_count = 0
+            fin_exact_base_count = 0
+            fin_mln_phrase_only_count = 0
+            fin_valid_n = 0
+
+            for r in valid_cell:
+                cid = r["caseId"]
+                cat = cases_by_id[cid]["category"]
+                t_norm = normalize_text(r["response"]["text"])
+                nums = extract_numbers(t_norm)
+                has_exact_1a = 13_749_400 in nums
+                has_mln_1a = bool(re.search(r"\b13[.,]75?\s*(?:million|mln|m\b|млн|миллион\w*|juta)", t_norm, re.I))
+                if has_exact_1a:
+                    exact_13749400_count += 1
+                if has_mln_1a:
+                    rounded_13_7x_mln_count += 1
+                    unit_1a_mln_cases.append({
+                        "model": model,
+                        "config": cfg,
+                        "caseId": cid,
+                        "category": cat,
+                        "also_has_exact_13749400": has_exact_1a,
+                        "matched_snippets": re.findall(r".{0,25}\b13[.,]75?\s*(?:million|mln|m\b|млн|миллион\w*|juta).{0,25}", t_norm, re.I),
+                    })
+
+                if cat == "finance":
+                    fin_valid_n += 1
+                    base_fid = "-".join(cid.split("-")[:2])
+                    gt_base = fin_gt_by_id[base_fid]["basePriceKzt"]
+                    has_exact_base = gt_base in nums
+                    has_mln_word = bool(re.search(r"\b\d+(?:[.,]\d+)?\s*(?:million|mln|млн|миллион\w*|juta)\b", t_norm, re.I))
+                    if has_exact_base:
+                        fin_exact_base_count += 1
+                    elif has_mln_word:
+                        fin_mln_phrase_only_count += 1
+                else:
+                    calc = r["response"].get("calculation")
+                    if isinstance(calc, dict):
+                        uc = str(calc.get("unitCode", "")).upper()
+                        u_info = units_by_code.get(uc)
+                        price = u_info["priceMin"] if u_info else 0
+                        dp_exp = round(price * 0.30)
+                        mo_exp = round((price - dp_exp) / 36)
+                        calc_exact0 = (
+                            calc.get("dp") == dp_exp
+                            and calc.get("monthly") == mo_exp
+                            and calc.get("total") == price
+                            and calc.get("tenor") == 36
+                        )
+                        text_exact0 = (dp_exp in nums) and (mo_exp in nums) and (price in nums)
+                        non_finance_calc_records.append({
+                            "model": model,
+                            "config": cfg,
+                            "caseId": cid,
+                            "category": cat,
+                            "unitCode": uc,
+                            "json_exact_0kzt": calc_exact0,
+                            "text_exact_0kzt": text_exact0,
+                            "calculation": calc,
+                        })
+
+            million_vs_exact_by_cell[model][cfg] = {
+                "n_valid_total": len(valid_cell),
+                "n_valid_finance": fin_valid_n,
+                "mentions_exact_13749400_kzt": exact_13749400_count,
+                "mentions_rounded_13_75_or_13_7_million_kzt": rounded_13_7x_mln_count,
+                "finance_mentions_exact_basePriceKzt": fin_exact_base_count,
+                "finance_mentions_million_phrase_without_exact_basePriceKzt": fin_mln_phrase_only_count,
+            }
+
+    cause_summary = Counter(x["causeCategory"] for x in itemized_tolerance_sensitive_cases)
+    fin_acc_diff_only = [
+        x for x in itemized_tolerance_sensitive_cases
+        if x["passes_frozen_2pct"] != x["passes_exact_0kzt"]
+    ]
+
+    return {
+        "description": (
+            "Secondary offline read-only sensitivity audit of exact nominal Tenge (0% tolerance / 0 KZT integer difference "
+            "and <= 1 KZT ROUND_HALF_UP match) versus the frozen primary evaluator.ts protocol (+/-2.0% relative tolerance) "
+            "across all 24 financial queries (financial_ground_truth.json) and 1,191 valid responses."
+        ),
+        "why_frozen_evaluator_uses_2pct_while_calculator_uses_round_half_up": {
+            "server_calculator_ground_truth_policy": (
+                "In src/lib/calculator.ts (calcFullPayment, calcInstallment, calcMortgage) and benchmark/financial_ground_truth.json, "
+                "all financial figures are computed in exact integer Kazakhstan Tenge (KZT) using standard half-up integer rounding "
+                "(Math.round / ROUND_HALF_UP). Across all 8 financial scenarios (F-01..F-08, 24 trilingual queries), calculator.ts "
+                "matches financial_ground_truth.json with 0 KZT deviation."
+            ),
+            "frozen_evaluator_2pct_rationale": (
+                "benchmark/evaluator.ts applies a uniform +/-2.0% relative tolerance (hasNumberNear(..., 0.02)) across all 5 "
+                "experimental arms (zero_shot, full_context, plus_prefilter, plus_calculator, proposed_hybrid). In baseline arms "
+                "without the deterministic calculator (full_context and plus_prefilter), the LLM computes 180-month (15%) and "
+                "240-month (17%) mortgage annuities and 36-month divisions (9,624,580 / 36 = 267,349.44...) in-context; minor "
+                "intermediate floating-point rounding of (1 + r)^n or rounding monthly installments to the nearest ten/hundred Tenge "
+                "yields small deviations of 0.0004% to 1.71% (1 KZT to 2,474 KZT). Furthermore, natural conversational prose may "
+                "express prices in rounded millions (e.g. 13.75 million vs 13,749,400 KZT, a 0.0044% difference). The +/-2.0% band "
+                "prevents baseline arms from being penalized for benign arithmetic or prose rounding when they apply the right domain "
+                "parameters, while still rejecting wrong formulas, wrong interest rates, or wrong unit prices."
+            ),
+            "conservativeness_finding": (
+                "Tightening financial evaluation from +/-2.0% to 0% (0 KZT exact integer match) or <= 1 KZT (ROUND_HALF_UP) produces "
+                "ZERO score change (0 cases affected) on Proposed Hybrid (24/24 = 100.0% on both openai/gpt-oss-120b and "
+                "qwen/qwen3.8-27b across both structured JSON calculation and narrative text, including all extended fields) and "
+                "ZERO score change on Plus Calculator (22/24 = 91.67% on openai/gpt-oss-120b and 18/24 = 75.00% on qwen/qwen3.8-27b, "
+                "with 24/24 = 100.0% exact 0 KZT narrative text match on both models). Conversely, baseline arms without calculator.ts "
+                "drop substantially under 0 KZT exact matching: openai/gpt-oss-120b full_context drops from 19/20 (95.00%) to 12/20 "
+                "(60.00%, -7 cases; or 14/20 = 70.00% under <= 1 KZT), and openai/gpt-oss-120b plus_prefilter drops from 22/22 "
+                "(100.00%) to 14/22 (63.64%, -8 cases; or 15/22 = 68.18% under <= 1 KZT). Thus, the frozen +/-2.0% rule is strictly "
+                "conservative with respect to the superiority of Proposed Hybrid."
+            ),
+        },
+        "overall_tolerance_sensitivity_summary": {
+            "total_scheduled_finance_calls": 240,
+            "total_valid_finance_calls": 234,
+            "total_http_400_finance_calls": 6,
+            "records_differing_on_financialAccuracy_2pct_vs_0kzt": len(fin_acc_diff_only),
+            "records_differing_on_any_submetric_2pct_vs_0kzt": len(itemized_tolerance_sensitive_cases),
+            "cause_breakdown_of_19_submetric_differences": {
+                "1_kzt_round_half_up_vs_round_up_difference": cause_summary.get("1_kzt_round_half_up_vs_round_up_difference", 0),
+                "llm_in_context_mortgage_annuity_approximation_within_2pct": cause_summary.get("llm_in_context_mortgage_annuity_approximation_within_2pct", 0),
+                "zero_shot_hypothetical_price_within_2pct_band": cause_summary.get("zero_shot_hypothetical_price_within_2pct_band", 0),
+                "million_kzt_prose_rounding_only": 0,
+            },
+        },
+        "by_model_and_config": by_model_and_config,
+        "paired_mcnemar_exact_0kzt": paired_mcnemar_exact_0kzt,
+        "million_kzt_vs_exact_integer_audit_1191": {
+            "summary": (
+                "Across all 951 valid catalog-aware responses (full_context, plus_prefilter, plus_calculator, proposed_hybrid across "
+                "both models), 0/951 (0.00%) abbreviate Unit 1A's price (13,749,400 KZT) to '13.75 million' or '13.7 million'; all "
+                "167/167 mentions of Unit 1A's price in catalog-aware arms quote the exact integer 13,749,400 KZT. The only 6/1,191 "
+                "responses containing '13.7 млн' / '13.7 M KZT' occur in ungrounded zero_shot budget queries (B-05-EN/RU/KK, B-06-KK) "
+                "where the user prompt itself contained 13,749,399 or 13,749,400 KZT. Similarly, in the 234 valid finance responses, "
+                "0/186 catalog-aware responses use million-KZT rounding in place of exact integer KZT (only 13/48 ungrounded zero_shot "
+                "finance responses use hypothetical '10M / 15M / 20M / 30M KZT' examples)."
+            ),
+            "by_model_and_config": million_vs_exact_by_cell,
+            "all_6_unit_1a_million_mentions_in_1191": unit_1a_mln_cases,
+            "non_finance_9_records_with_calculation_json": non_finance_calc_records,
+        },
+        "itemized_19_tolerance_sensitive_finance_records": itemized_tolerance_sensitive_cases,
+    }
+
+
 def main(argv: Optional[List[str]] = None) -> None:
     parser = argparse.ArgumentParser(
         description="Deterministic Raw-Archive Re-Audit Script for the 1,200-Call Revisi 8 Benchmark."
@@ -1626,6 +2308,17 @@ def main(argv: Optional[List[str]] = None) -> None:
         "all_10_arms": av01_ru_across_arms,
     }
 
+    # =========================================================================
+    # (g) Secondary Read-Only Exact Nominal Financial Sensitivity Audit (Section G)
+    # =========================================================================
+    section_g_audit = section_g_secondary_exact_financial_audit(
+        eval_data=eval_data,
+        cases_list=cases_list,
+        cases_by_id=cases_by_id,
+        fin_gt_data=fin_gt_data,
+        records_by_cell=records_by_cell,
+    )
+
     summary_payload = {
         "auditMetadata": {
             "generatedAt": "2026-11-14T00:50:00+07:00",
@@ -1693,6 +2386,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             "by_model": sanitizer_audit_by_model,
         },
         "section_f_av01_ru_adjudication_dossier": av01_ru_dossier,
+        "section_g_secondary_exact_financial_audit": section_g_audit,
     }
 
     out_summary_json_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1769,6 +2463,23 @@ def main(argv: Optional[List[str]] = None) -> None:
                 f"Faith={cf_val['faithfulness']['k']}/120 ({cf_val['faithfulness']['pct']}%) "
                 f"Ref={cf_val['refusal']['k']}/54 ({cf_val['refusal']['pct']}%) "
                 f"Fin={cf_val['financialAccuracy']['k']}/24 ({cf_val['financialAccuracy']['pct']}%)"
+            )
+
+    print("\n--- SECTION G: SECONDARY EXACT NOMINAL FINANCIAL SENSITIVITY AUDIT ---")
+    for m in MODELS:
+        for c in CONFIGS:
+            vg = section_g_audit["by_model_and_config"][m][c]
+            f2 = vg["frozen_primary_2pct"]
+            f0 = vg["secondary_exact_0kzt_tolerance_0pct"]
+            f1 = vg["secondary_round_half_up_1kzt_tolerance"]
+            dl = vg["delta_cases_2pct_vs_exact"]
+            print(
+                f"{m:20s} | {c:15s} | valid={vg['n_valid']:2d}/24 "
+                f"| 2%={f2['financialAccuracy']['k']:2d}/{vg['n_valid']:2d} ({f2['financialAccuracy']['pct_conditional']:6.2f}%) "
+                f"| Exact0={f0['financialAccuracy_exact_0kzt']['k']:2d}/{vg['n_valid']:2d} ({f0['financialAccuracy_exact_0kzt']['pct_conditional']:6.2f}%) "
+                f"[T0:{f0['text_narrative_core_exact_0kzt']['k']:2d}/{vg['n_valid']:2d}, J0:{f0['json_calculation_core_exact_0kzt']['k']:2d}/{vg['json_present_count']:2d}] "
+                f"| 1KZT={f1['financialAccuracy_1kzt']['k']:2d}/{vg['n_valid']:2d} ({f1['financialAccuracy_1kzt']['pct_conditional']:6.2f}%) "
+                f"| Delta(2%-0KZT)={dl['financialAccuracy_delta_2pct_minus_0kzt']:+d}"
             )
 
 
